@@ -8,6 +8,15 @@ namespace GeometryDetection
     public class GeometryNode : OctreeNode
     {
         [SerializeField] private bool _partitionNode = false;
+        private bool _containsGeometry = false;
+        public bool ContainsGeometry
+        {
+            get { return _containsGeometry; }
+            private set 
+            { 
+                _containsGeometry = value;
+            }
+        }
 
         private BoxCollider _detectionCollider;
         public BoxCollider DetectionCollider
@@ -21,6 +30,7 @@ namespace GeometryDetection
             base.Awake();
 
             DetectionCollider = gameObject.AddComponent<BoxCollider>();
+            DetectionCollider.isTrigger = true;
         }
 
         private void Update()
@@ -31,8 +41,43 @@ namespace GeometryDetection
             _partitionNode = false;
         }
 
-        public override void Partition()
+        private void OnTriggerEnter(Collider other)
         {
+            if (other.gameObject.layer == LayerMask.NameToLayer("Geometry"))
+            {
+                ContainsGeometry = true;
+
+                List<Vector3> colliderBounds = new List<Vector3>();
+                colliderBounds.Add(transform.position + new Vector3(DetectionCollider.bounds.extents.x, DetectionCollider.bounds.extents.y, DetectionCollider.bounds.extents.z));
+                colliderBounds.Add(transform.position + new Vector3(-DetectionCollider.bounds.extents.x, DetectionCollider.bounds.extents.y, DetectionCollider.bounds.extents.z));
+                colliderBounds.Add(transform.position + new Vector3(-DetectionCollider.bounds.extents.x, -DetectionCollider.bounds.extents.y, DetectionCollider.bounds.extents.z));
+                colliderBounds.Add(transform.position + new Vector3(DetectionCollider.bounds.extents.x, -DetectionCollider.bounds.extents.y, DetectionCollider.bounds.extents.z));
+                colliderBounds.Add(transform.position + new Vector3(DetectionCollider.bounds.extents.x, DetectionCollider.bounds.extents.y, -DetectionCollider.bounds.extents.z));
+                colliderBounds.Add(transform.position + new Vector3(-DetectionCollider.bounds.extents.x, DetectionCollider.bounds.extents.y, -DetectionCollider.bounds.extents.z));
+                colliderBounds.Add(transform.position + new Vector3(-DetectionCollider.bounds.extents.x, -DetectionCollider.bounds.extents.y, -DetectionCollider.bounds.extents.z));
+                colliderBounds.Add(transform.position + new Vector3(DetectionCollider.bounds.extents.x, -DetectionCollider.bounds.extents.y, -DetectionCollider.bounds.extents.z));
+
+                foreach (var point in colliderBounds)
+                {
+                    if (!other.bounds.Contains(point))
+                    {
+                        Partition();
+                        break;
+                    }
+                }
+            }
+        }
+
+        protected override void Partition()
+        {
+            int newDepth = Depth + 1;
+            GeometryDetector.CurrentProgress = GeometryDetector.Progress.Generating;
+            if (newDepth > GeometryDetector.MaxSteps)
+            {
+                GeometryDetector.BottomNodes.Add(this);
+                return;
+            }
+
             foreach (OctreeNode child in Children)
             {
                 if (child)
@@ -41,7 +86,6 @@ namespace GeometryDetection
 
             for (int i = 0; i < Children.Capacity; i++)
             {
-                int newDepth = Depth + 1;
                 GameObject obj = new GameObject("Layer" + newDepth + "Node" + (i + 1));
                 obj.transform.parent = transform;
                 obj.transform.position = transform.position + IteratePositions(i);
@@ -55,11 +99,6 @@ namespace GeometryDetection
 
             if (HasChildren)
                 DetectionCollider.enabled = false;
-        }
-
-        public void DetectGeometry()
-        {
-
         }
 
         private Vector3 IteratePositions(int step)

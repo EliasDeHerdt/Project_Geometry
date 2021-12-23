@@ -4,37 +4,21 @@ using UnityEngine;
 
 namespace GeometryDetection
 {
+    // Utilizes the already detected geometry and only tries to find holes or tunnels
     public class HoleDetector : MonoBehaviour
     {
-        [SerializeField] private Vector3 _startPos = new Vector3(0f, 0f ,0f);
-        [SerializeField] private Vector3 _startScale = new Vector3(1f, 1f ,1f);
+        private GeometryDetector _geometryDetector;
 
-        /// <summary>This collider's information will be used to create the first node's collider. It will be disabled on start</summary>
-        [SerializeField] private Collider _guideCollider;
-
-        private Octree<GeometryNode> _nodeTree = new Octree<GeometryNode>();
-        public Octree<GeometryNode> NodeTree
+        private void Start()
         {
-            get { return _nodeTree; }
+            _geometryDetector = GetComponent<GeometryDetector>();
+            if (!_geometryDetector)
+                Debug.LogError("HoleDetector: No GeometryDetector has been found on this object!");
         }
 
-        void Start()
+        public void UpdateData()
         {
-            GameObject obj = new GameObject("BaseNode");
-            obj.transform.parent = transform;
-
-            GeometryNode comp = obj.AddComponent<GeometryNode>();
-            comp.DetectionCollider.size = _guideCollider ? _guideCollider.bounds.size : _startScale;
-
-            obj.transform.position = _guideCollider ? _guideCollider.transform.position : _startPos;
-            NodeTree.BaseNode = obj.GetComponent<GeometryNode>();
-            NodeTree.BaseNode.Partition();
-            NodeTree.BaseNode.DetectGeometry();
-
-            if (_guideCollider)
-                _guideCollider.enabled = false;
-                //Destroy(_guideCollider);
+            Debug.Log("Pulled in data.");
         }
     }
-
 }

@@ -6,6 +6,8 @@ namespace GeometryDetection
 {
     public abstract class OctreeNode : MonoBehaviour
     {
+        
+
         private int _depth = 0;
         public int Depth
         {
@@ -39,6 +41,7 @@ namespace GeometryDetection
             }
         }
 
-        public abstract void Partition();
+        //public abstract void Collapse();
+        protected abstract void Partition();
     }
 }
