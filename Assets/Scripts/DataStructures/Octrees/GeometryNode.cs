@@ -18,6 +18,12 @@ namespace GeometryDetection
             }
         }
 
+        private GeometryDetector _geometryDetector;
+        public GeometryDetector GeometryDetector
+        {
+            get { return _geometryDetector; }
+        }
+
         private BoxCollider _detectionCollider;
         public BoxCollider DetectionCollider
         {
@@ -28,6 +34,8 @@ namespace GeometryDetection
         protected override void Awake()
         {
             base.Awake();
+
+            _geometryDetector = GetComponentInParent<GeometryDetector>();
 
             DetectionCollider = gameObject.AddComponent<BoxCollider>();
             DetectionCollider.isTrigger = true;
@@ -57,6 +65,8 @@ namespace GeometryDetection
                 colliderBounds.Add(transform.position + new Vector3(-DetectionCollider.bounds.extents.x, -DetectionCollider.bounds.extents.y, -DetectionCollider.bounds.extents.z));
                 colliderBounds.Add(transform.position + new Vector3(DetectionCollider.bounds.extents.x, -DetectionCollider.bounds.extents.y, -DetectionCollider.bounds.extents.z));
 
+                // Check if every corner of our cube is inside of our hit mesh.
+                // If this is the case, there is no need to partition any further as our entire collider will be terrain.
                 foreach (var point in colliderBounds)
                 {
                     if (!other.bounds.Contains(point))
@@ -70,26 +80,40 @@ namespace GeometryDetection
 
         protected override void Partition()
         {
-            int newDepth = Depth + 1;
+            if (!GeometryDetector)
+            {
+                Debug.LogError("GeometryNode: No GeometryDetector is present on this GameObject!");
+                return;
+            }
+
+            // Notify our GeometryDetector that we are still adding onto the octree.
             GeometryDetector.CurrentProgress = GeometryDetector.Progress.Generating;
+
+            // Check if it is allowed to go any deeper in our tree.
+            int newDepth = Depth + 1;
             if (newDepth > GeometryDetector.MaxSteps)
             {
                 GeometryDetector.BottomNodes.Add(this);
                 return;
             }
 
+            // If any exist, destroy our previous children to re-partition.
             foreach (OctreeNode child in Children)
             {
                 if (child)
                     Destroy(child);
             }
 
+            // Create a new Node for every child and set its parameters.
             for (int i = 0; i < Children.Capacity; i++)
             {
+                // Create our new object with the correct name, parent, and position.
                 GameObject obj = new GameObject("Layer" + newDepth + "Node" + (i + 1));
                 obj.transform.parent = transform;
                 obj.transform.position = transform.position + IteratePositions(i);
 
+                // Create and add our Node component to the object.
+                // Also set its correct Depth and Collider-Size.
                 GeometryNode comp = obj.AddComponent<GeometryNode>();
                 comp.Depth = newDepth;
                 comp.DetectionCollider.size = DetectionCollider.size / 2f;
@@ -97,10 +121,12 @@ namespace GeometryDetection
                 Children[i] = comp;
             }
 
+            // If our children where succesfully made (which should always be the case), disable the parents collider.
             if (HasChildren)
                 DetectionCollider.enabled = false;
         }
 
+        // This function returns the correct position for the child nodes based on which of the 8 nodes is being spawned.
         private Vector3 IteratePositions(int step)
         {
             int moveSide = step % 2;

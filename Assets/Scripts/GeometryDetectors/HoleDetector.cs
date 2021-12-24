@@ -8,6 +8,10 @@ namespace GeometryDetection
     public class HoleDetector : MonoBehaviour
     {
         private GeometryDetector _geometryDetector;
+        public GeometryDetector GeometryDetector 
+        { 
+            get { return _geometryDetector; } 
+        }
 
         private void Start()
         {
@@ -16,9 +20,12 @@ namespace GeometryDetection
                 Debug.LogError("HoleDetector: No GeometryDetector has been found on this object!");
         }
 
-        public void UpdateData()
+        public void DetectHoles()
         {
+            List<GeometryNode> geometry = GeometryDetector.BottomNodes;
             Debug.Log("Pulled in data.");
+
+            // Start detecting the holes.
         }
     }
 }

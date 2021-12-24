@@ -6,8 +6,6 @@ namespace GeometryDetection
 {
     public abstract class OctreeNode : MonoBehaviour
     {
-        
-
         private int _depth = 0;
         public int Depth
         {
@@ -35,6 +33,8 @@ namespace GeometryDetection
 
         protected virtual void Awake()
         {
+            // Fill our list with empty values.
+            // At start the capacity will be 8, but the list will still be empty.
             for (int i = 0; i < Children.Capacity; i++)
             {
                 Children.Add(null);

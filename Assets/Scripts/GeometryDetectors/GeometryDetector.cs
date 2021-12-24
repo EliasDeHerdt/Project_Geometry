@@ -15,37 +15,37 @@ namespace GeometryDetection
         }
 
         [Header("Data to spawn when no collider is given.")]
-        [Header("At any given point in time, there should only be 1 of these!")]
+        [Header("There should only be 1 instance of this component!")]
         [SerializeField] private Vector3 _startPos = new Vector3(0f, 0f ,0f);
         [SerializeField] private Vector3 _startScale = new Vector3(1f, 1f ,1f);
 
         [Header("Collider that acts as starting area.")]
-        /// <summary>This collider's information will be used to create the first node's collider. It will be disabled on start</summary>
+        // This collider's information will be used to create the first node's collider. It will be disabled on start!
         [SerializeField] private Collider _guideCollider;
 
         [Header("Detection Parameters")]
-        [SerializeField] private int _maxSteps = 10;
-        private static int _maxStepsStatic;
-        static public int MaxSteps
+        [SerializeField] private int _maxSteps = 5;
+        public int MaxSteps
         { 
-            get { return _maxStepsStatic; } 
+            get { return _maxSteps; } 
         }
 
-        private static List<GeometryNode> _bottomNodes = new List<GeometryNode>();
-        public static List<GeometryNode> BottomNodes
-        {
-            get { return _bottomNodes; }
-        }
-
+        // ---------- Possible Output Variables ----------
         private Octree<GeometryNode> _nodeTree = new Octree<GeometryNode>();
         public Octree<GeometryNode> NodeTree
         {
             get { return _nodeTree; }
         }
 
+        private List<GeometryNode> _bottomNodes = new List<GeometryNode>();
+        public List<GeometryNode> BottomNodes
+        {
+            get { return _bottomNodes; }
+        }
+
         // -------- Initial Generation Variables --------
-        private static Progress _currentProgress = Progress.Generating;
-        public static Progress CurrentProgress
+        private Progress _currentProgress = Progress.Generating;
+        public Progress CurrentProgress
         {
             get { return _currentProgress; }
             set { _currentProgress = value; }
@@ -56,8 +56,6 @@ namespace GeometryDetection
 
         void Start()
         {
-            _maxStepsStatic = _maxSteps;
-
             GameObject obj = new GameObject("BaseNode");
             obj.transform.parent = transform;
 
@@ -80,6 +78,8 @@ namespace GeometryDetection
                     break;
                 case Progress.Processing:
                     CurrentProgress = Progress.Finished;
+                    Debug.Log("Generation of octree has finished.");
+
                     GenerationFinished.Invoke();
                     break;
                 case Progress.Finished:
@@ -88,5 +88,4 @@ namespace GeometryDetection
             }
         }
     }
-
 }
