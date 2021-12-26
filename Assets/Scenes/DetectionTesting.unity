@@ -1103,9 +1103,9 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 271021387685627197, guid: 6bb6cef3e44d9a24f9136f02e2846bda, type: 3}
-      propertyPath: _maxSteps
-      value: 5
-      objectReference: {fileID: 0}
+      propertyPath: _nodePreviewMaterial
+      value: 
+      objectReference: {fileID: 2100000, guid: b1ed4d7c9aa9efa4881c9afd749f43ec, type: 2}
     - target: {fileID: 271021387685627197, guid: 6bb6cef3e44d9a24f9136f02e2846bda, type: 3}
       propertyPath: GenerationFinished.m_PersistentCalls.m_Calls.Array.size
       value: 1

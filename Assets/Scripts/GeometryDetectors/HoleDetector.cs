@@ -22,7 +22,7 @@ namespace GeometryDetection
 
         public void DetectHoles()
         {
-            List<GeometryNode> geometry = GeometryDetector.BottomNodes;
+            List<GeometryNode> geometry = GeometryDetector.EmptyNodes;
             Debug.Log("Pulled in data.");
 
             // Start detecting the holes.

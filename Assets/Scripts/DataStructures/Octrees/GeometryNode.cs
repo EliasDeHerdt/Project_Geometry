@@ -7,15 +7,68 @@ namespace GeometryDetection
 {
     public class GeometryNode : OctreeNode
     {
-        [SerializeField] private bool _partitionNode = false;
-        private bool _containsGeometry = false;
-        public bool ContainsGeometry
+        [System.Serializable]
+        public struct NeighborInfo
         {
-            get { return _containsGeometry; }
-            private set 
-            { 
-                _containsGeometry = value;
+            public NeighborInfo(GeometryNode neighbor, NeighborDirection direction)
+            {
+                Neighbor = neighbor;
+                Direction = direction;
             }
+
+            public GeometryNode Neighbor;
+            public NeighborDirection Direction;
+        }
+
+        // Direction is based on world(X, Y ,Z) where:
+        // X = Left - Right
+        // Y = Up - Down
+        // Z = Front - Back
+        public enum NeighborDirection
+        {
+            Up,
+            UpLeft,
+            Left,
+            DownLeft,
+            Down,
+            DownRight,
+            Right,
+            UpRight,
+            Front,
+            FrontUp,
+            FrontUpLeft,
+            FrontLeft,
+            FrontDownLeft,
+            FrontDown,
+            FrontDownRight,
+            FrontRight,
+            FrontUpRight,
+            Back,
+            BackUp,
+            BackUpLeft,
+            BackLeft,
+            BackDownLeft,
+            BackDown,
+            BackDownRight,
+            BackRight,
+            BackUpRight,
+            Invalid
+        }
+
+        public enum Detection
+        {
+            Detecting,
+            Empty,
+            ContainsGeometry
+        }
+
+        private bool _skipFirstFrame = true;
+
+        private Detection _nodeState = Detection.Detecting;
+        public Detection NodeState
+        {
+            get { return _nodeState; }
+            private set { _nodeState = value;}
         }
 
         private GeometryDetector _geometryDetector;
@@ -28,7 +81,34 @@ namespace GeometryDetection
         public BoxCollider DetectionCollider
         {
             get { return _detectionCollider; }
-            set { _detectionCollider = value; }
+            private set { _detectionCollider = value; }
+        }
+
+        private Rigidbody _detectionRigidBody;
+        public Rigidbody DetectionRigidBody
+        {
+            get { return _detectionRigidBody; }
+            private set { _detectionRigidBody = value; }
+        }
+
+        private GeometryNode _parentNode;
+        public GeometryNode ParentNode
+        {
+            get { return _parentNode;}
+            private set { _parentNode = value; }
+        }
+
+        private List<NeighborInfo> _neighbors = new List<NeighborInfo>();
+        public List<NeighborInfo> Neighbors
+        {
+            get { return _neighbors; }
+        }
+
+        private MeshFilter _meshFilter;
+        private Renderer _nodeRenderer;
+        public Renderer NodeRenderer
+        {
+            get { return _nodeRenderer; }
         }
 
         protected override void Awake()
@@ -38,22 +118,32 @@ namespace GeometryDetection
             _geometryDetector = GetComponentInParent<GeometryDetector>();
 
             DetectionCollider = gameObject.AddComponent<BoxCollider>();
-            DetectionCollider.isTrigger = true;
+            DetectionCollider.isTrigger = false;
+
+            DetectionRigidBody = gameObject.AddComponent<Rigidbody>();
+            DetectionRigidBody.useGravity = false;
+            DetectionRigidBody.isKinematic = true;
         }
 
         private void Update()
         {
-            if (_partitionNode)
-                Partition();
-
-            _partitionNode = false;
+            // Whenever a Node is added, it will only check its triggers on the next frame.
+            // To make sure it doesn't check for empty to fast, make it wait a frame.
+            if (!_skipFirstFrame)
+            {
+                CheckIfEmpty();
+                DetectionCollider.isTrigger = true;
+            }
+            
+            _skipFirstFrame = false;
         }
 
         private void OnTriggerEnter(Collider other)
         {
+            GeometryNode otherNode;
             if (other.gameObject.layer == LayerMask.NameToLayer("Geometry"))
             {
-                ContainsGeometry = true;
+                NodeState = Detection.ContainsGeometry;
 
                 List<Vector3> colliderBounds = new List<Vector3>();
                 colliderBounds.Add(transform.position + new Vector3(DetectionCollider.bounds.extents.x, DetectionCollider.bounds.extents.y, DetectionCollider.bounds.extents.z));
@@ -72,10 +162,175 @@ namespace GeometryDetection
                     if (!other.bounds.Contains(point))
                     {
                         Partition();
-                        break;
+                        return;
                     }
                 }
             }
+            else if (otherNode = other.gameObject.GetComponent<GeometryNode>())
+            {
+                StoreNeighbor(otherNode);
+            }
+        }
+
+        private void CheckIfEmpty()
+        {
+            if (NodeState == Detection.Detecting
+                && !HasChildren)
+            {
+                NodeState = Detection.Empty;
+                GeometryDetector.EmptyNodes.Add(this);
+
+                _meshFilter = gameObject.AddComponent<MeshFilter>();
+                _meshFilter.mesh = GeometryDetector.NodePreviewMesh;
+                ScaleMeshToNode(_meshFilter.mesh);
+
+                _nodeRenderer = gameObject.AddComponent<MeshRenderer>();
+                _nodeRenderer.sharedMaterial = GeometryDetector.NodePreviewMaterial;
+            }
+        }
+
+        private void ScaleMeshToNode(Mesh mesh)
+        {
+            Vector3[] baseVertices = mesh.vertices;
+            Vector3[] newVertices = new Vector3[baseVertices.Length];
+            for (int i = 0; i < baseVertices.Length; ++i)
+            {
+                Vector3 currVertex = baseVertices[i];
+
+                currVertex.x = currVertex.x * DetectionCollider.size.x;
+                currVertex.y = currVertex.y * DetectionCollider.size.y;
+                currVertex.z = currVertex.z * DetectionCollider.size.z;
+
+                newVertices[i] = currVertex;
+            }
+            mesh.vertices = newVertices;
+        }
+
+        private void StoreNeighbor(GeometryNode foundNeighbor)
+        {
+            // Check if neighbor isn't already present in our list.
+            NeighborInfo alreadyPresentCheck = FindNeighbor(foundNeighbor);
+            if (alreadyPresentCheck.Neighbor)
+                return;
+
+            // Check if neighbors parent is already in our neighbor list.
+            // If so, remove it first.
+            Neighbors.Remove(FindNeighbor(foundNeighbor.ParentNode));
+
+            // Check where the neigbor is located compared to this node
+            NeighborDirection direction = GetDirectionToNode(foundNeighbor);
+            if (direction == NeighborDirection.Invalid)
+                return;
+
+            // Set up the Neighbor Info
+            NeighborInfo info = new NeighborInfo(foundNeighbor, direction);
+
+            // Add the neighbor to our list.
+            Neighbors.Add(info);
+
+            // Add ourselves to the neighbor.
+            foundNeighbor.StoreNeighbor(this);
+        }
+
+        private NeighborInfo FindNeighbor(GeometryNode neighbor)
+        {
+            foreach (NeighborInfo info in Neighbors)
+            {
+                if (info.Neighbor == neighbor)
+                    return info;
+            }
+
+            return new NeighborInfo();
+        }
+
+        private NeighborDirection GetDirectionToNode(GeometryNode node)
+        {
+            GeometryNode thisCorrectParent = this;
+            GeometryNode otherCorrectParent = node;
+
+            // If the other node is smaller, go up until their parent is the same size.
+            while (otherCorrectParent != null
+                && thisCorrectParent.Depth < otherCorrectParent.Depth)
+            {
+                otherCorrectParent = otherCorrectParent.ParentNode;
+            }
+
+            // If we are smaller, go up so our parent is the same size.
+            while (thisCorrectParent != null
+                && otherCorrectParent.Depth < thisCorrectParent.Depth)
+            {
+                thisCorrectParent = thisCorrectParent.ParentNode;
+            }
+
+            Vector3 ourPosition = thisCorrectParent.transform.position;
+            Vector3 otherPosition = otherCorrectParent.gameObject.transform.position;
+
+            #region Default Checks
+            if (otherPosition.x == ourPosition.x
+                && otherPosition.y > ourPosition.y
+                && otherPosition.z == ourPosition.z)
+            {
+                return NeighborDirection.Up;
+            }
+            else if (otherPosition.x < ourPosition.x
+                && otherPosition.y == ourPosition.y
+                && otherPosition.z == ourPosition.z)
+            {
+                return NeighborDirection.Left;
+            }
+            else if (otherPosition.x == ourPosition.x
+                && otherPosition.y < ourPosition.y
+                && otherPosition.z == ourPosition.z)
+            {
+                return NeighborDirection.Down;
+            }
+            else if (otherPosition.x > ourPosition.x
+                && otherPosition.y == ourPosition.y
+                && otherPosition.z == ourPosition.z)
+            {
+                return NeighborDirection.Right;
+            }
+            else if (otherPosition.x == ourPosition.x
+                && otherPosition.y == ourPosition.y
+                && otherPosition.z < ourPosition.z)
+            {
+                return NeighborDirection.Back;
+            }
+            else if (otherPosition.x == ourPosition.x
+                && otherPosition.y == ourPosition.y
+                && otherPosition.z > ourPosition.z)
+            {
+                return NeighborDirection.Front;
+            }
+            #endregion
+            #region Extra Checks
+            //else if(otherPosition.x < ourPosition.x
+            //    && otherPosition.y > ourPosition.y
+            //    && otherPosition.z == ourPosition.z)
+            //{
+            //    return NeighborDirection.UpLeft;
+            //}
+            //else if (otherPosition.x < ourPosition.x
+            //    && otherPosition.y < ourPosition.y
+            //    && otherPosition.z == ourPosition.z)
+            //{
+            //    return NeighborDirection.DownLeft;
+            //}
+            //else if (otherPosition.x > ourPosition.x
+            //    && otherPosition.y < ourPosition.y
+            //    && otherPosition.z == ourPosition.z)
+            //{
+            //    return NeighborDirection.DownRight;
+            //}
+            //else if (otherPosition.x > ourPosition.x
+            //    && otherPosition.y > ourPosition.y
+            //    && otherPosition.z == ourPosition.z)
+            //{
+            //    return NeighborDirection.UpRight;
+            //}
+            #endregion
+
+            return NeighborDirection.Invalid;
         }
 
         protected override void Partition()
@@ -93,7 +348,6 @@ namespace GeometryDetection
             int newDepth = Depth + 1;
             if (newDepth > GeometryDetector.MaxSteps)
             {
-                GeometryDetector.BottomNodes.Add(this);
                 return;
             }
 
@@ -103,6 +357,12 @@ namespace GeometryDetection
                 if (child)
                     Destroy(child);
             }
+
+            // Clear our neighbors as this node is no longer used, we are more interested in its children (also for clarity in the editor)
+            Neighbors.Clear();
+
+            // Disable our Rigidbody to prevent faulty neighbor detection.
+            DetectionRigidBody.detectCollisions = false;
 
             // Create a new Node for every child and set its parameters.
             for (int i = 0; i < Children.Capacity; i++)
@@ -114,16 +374,17 @@ namespace GeometryDetection
 
                 // Create and add our Node component to the object.
                 // Also set its correct Depth and Collider-Size.
-                GeometryNode comp = obj.AddComponent<GeometryNode>();
-                comp.Depth = newDepth;
-                comp.DetectionCollider.size = DetectionCollider.size / 2f;
+                GeometryNode node = obj.AddComponent<GeometryNode>();
+                node.Depth = newDepth;
+                node.ParentNode = this;
+                node.DetectionCollider.size = DetectionCollider.size / 2f;
+                node.DetectionCollider.enabled = true;
 
-                Children[i] = comp;
+                Children[i] = node;
             }
 
-            // If our children where succesfully made (which should always be the case), disable the parents collider.
-            if (HasChildren)
-                DetectionCollider.enabled = false;
+            // Disable our collider as it is no longer used (the children fill up the same space)
+            DetectionCollider.enabled = false;
         }
 
         // This function returns the correct position for the child nodes based on which of the 8 nodes is being spawned.

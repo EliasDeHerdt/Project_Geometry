@@ -15,16 +15,5 @@ namespace GeometryDetection
                 _baseNode = value;
             }
         }
-
-        //private void GetNode(byte[] path)
-        //{
-        //    foreach(byte step in path)
-        //    {
-        //        if ((byte)(step & (step - 1)) != 0)
-        //        {
-
-        //        }
-        //    }
-        //}
     }
 }

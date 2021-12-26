@@ -47,6 +47,12 @@ MonoBehaviour:
   _startPos: {x: 2, y: 2, z: 2}
   _startScale: {x: 1, y: 1, z: 1}
   _guideCollider: {fileID: 271021387685627195}
+  _maxSteps: 5
+  _nodePreviewMesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+  _nodePreviewMaterial: {fileID: 2100000, guid: 9fa8d081df2fb174b804627df0604878, type: 2}
+  GenerationFinished:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!65 &271021387685627195
 BoxCollider:
   m_ObjectHideFlags: 0

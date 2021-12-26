@@ -30,6 +30,22 @@ namespace GeometryDetection
             get { return _maxSteps; } 
         }
 
+        [Header("Visualization Parameters")]
+        [SerializeField] private Mesh _nodePreviewMesh;
+        public Mesh NodePreviewMesh
+        {
+            get { return _nodePreviewMesh; }
+        }
+
+        [SerializeField] private Material _nodePreviewMaterial;
+        public Material NodePreviewMaterial
+        {
+            get { return _nodePreviewMaterial; }
+        }
+
+        [Header("Events")]
+        public UnityEvent GenerationFinished;
+
         // ---------- Possible Output Variables ----------
         private Octree<GeometryNode> _nodeTree = new Octree<GeometryNode>();
         public Octree<GeometryNode> NodeTree
@@ -37,10 +53,10 @@ namespace GeometryDetection
             get { return _nodeTree; }
         }
 
-        private List<GeometryNode> _bottomNodes = new List<GeometryNode>();
-        public List<GeometryNode> BottomNodes
+        private List<GeometryNode> _emptyNodes = new List<GeometryNode>();
+        public List<GeometryNode> EmptyNodes
         {
-            get { return _bottomNodes; }
+            get { return _emptyNodes; }
         }
 
         // -------- Initial Generation Variables --------
@@ -51,7 +67,6 @@ namespace GeometryDetection
             set { _currentProgress = value; }
         }
 
-        public UnityEvent GenerationFinished;
         // ----------------------------------------------
 
         void Start()
