@@ -6,6 +6,26 @@ namespace GeometryDetection
 {
     public abstract class OctreeNode : MonoBehaviour
     {
+        #region Variables
+        private Octree _parentTree;
+        public Octree ParentTree
+        {
+            get { return _parentTree; }
+            set 
+            {
+                if (value == null
+                    && _parentTree != null)
+                {
+                    _parentTree.NodeCount--;
+                }
+
+                _parentTree = value;
+
+                if (_parentTree != null)
+                    _parentTree.NodeCount++;
+            }
+        }
+
         private int _depth = 0;
         public int Depth
         {
@@ -30,6 +50,7 @@ namespace GeometryDetection
         {
             get { return _children; }
         }
+        #endregion
 
         protected virtual void Awake()
         {

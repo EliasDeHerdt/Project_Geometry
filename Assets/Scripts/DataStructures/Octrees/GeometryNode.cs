@@ -7,62 +7,13 @@ namespace GeometryDetection
 {
     public class GeometryNode : OctreeNode
     {
-        [System.Serializable]
-        public struct NeighborInfo
+        #region Variables
+        private NodeSetUp _setUpProgress = NodeSetUp.SkipFrame;
+        public NodeSetUp SetUpProgress
         {
-            public NeighborInfo(GeometryNode neighbor, NeighborDirection direction)
-            {
-                Neighbor = neighbor;
-                Direction = direction;
-            }
-
-            public GeometryNode Neighbor;
-            public NeighborDirection Direction;
+            get { return _setUpProgress; }
+            private set { _setUpProgress = value; }
         }
-
-        // Direction is based on world(X, Y ,Z) where:
-        // X = Left - Right
-        // Y = Up - Down
-        // Z = Front - Back
-        public enum NeighborDirection
-        {
-            Up,
-            UpLeft,
-            Left,
-            DownLeft,
-            Down,
-            DownRight,
-            Right,
-            UpRight,
-            Front,
-            FrontUp,
-            FrontUpLeft,
-            FrontLeft,
-            FrontDownLeft,
-            FrontDown,
-            FrontDownRight,
-            FrontRight,
-            FrontUpRight,
-            Back,
-            BackUp,
-            BackUpLeft,
-            BackLeft,
-            BackDownLeft,
-            BackDown,
-            BackDownRight,
-            BackRight,
-            BackUpRight,
-            Invalid
-        }
-
-        public enum Detection
-        {
-            Detecting,
-            Empty,
-            ContainsGeometry
-        }
-
-        private bool _skipFirstFrame = true;
 
         private Detection _nodeState = Detection.Detecting;
         public Detection NodeState
@@ -110,6 +61,7 @@ namespace GeometryDetection
         {
             get { return _nodeRenderer; }
         }
+        #endregion
 
         protected override void Awake()
         {
@@ -129,13 +81,22 @@ namespace GeometryDetection
         {
             // Whenever a Node is added, it will only check its triggers on the next frame.
             // To make sure it doesn't check for empty to fast, make it wait a frame.
-            if (!_skipFirstFrame)
+            switch (SetUpProgress)
             {
-                CheckIfEmpty();
-                DetectionCollider.isTrigger = true;
+                case NodeSetUp.SkipFrame:
+                    SetUpProgress = NodeSetUp.SetUpData;
+                    break;
+                case NodeSetUp.SetUpData:
+                    CheckIfEmpty();
+                    DetectionCollider.isTrigger = true;
+
+                    GeometryDetector.NodesCompleted++;
+                    SetUpProgress = NodeSetUp.Finished;
+                    break;
+                case NodeSetUp.Finished:
+                default:
+                    break;
             }
-            
-            _skipFirstFrame = false;
         }
 
         private void OnTriggerEnter(Collider other)
@@ -166,7 +127,8 @@ namespace GeometryDetection
                     }
                 }
             }
-            else if (otherNode = other.gameObject.GetComponent<GeometryNode>())
+            else if (other.gameObject.layer == LayerMask.NameToLayer("GeoDetection")
+                && (otherNode = other.gameObject.GetComponent<GeometryNode>()))
             {
                 StoreNeighbor(otherNode);
             }
@@ -197,9 +159,9 @@ namespace GeometryDetection
             {
                 Vector3 currVertex = baseVertices[i];
 
-                currVertex.x = currVertex.x * DetectionCollider.size.x;
-                currVertex.y = currVertex.y * DetectionCollider.size.y;
-                currVertex.z = currVertex.z * DetectionCollider.size.z;
+                currVertex.x *= DetectionCollider.size.x;
+                currVertex.y *= DetectionCollider.size.y;
+                currVertex.z *= DetectionCollider.size.z;
 
                 newVertices[i] = currVertex;
             }
@@ -341,9 +303,6 @@ namespace GeometryDetection
                 return;
             }
 
-            // Notify our GeometryDetector that we are still adding onto the octree.
-            GeometryDetector.CurrentProgress = GeometryDetector.Progress.Generating;
-
             // Check if it is allowed to go any deeper in our tree.
             int newDepth = Depth + 1;
             if (newDepth > GeometryDetector.MaxSteps)
@@ -352,10 +311,14 @@ namespace GeometryDetection
             }
 
             // If any exist, destroy our previous children to re-partition.
-            foreach (OctreeNode child in Children)
+            for (int i = 0; i < Children.Capacity; i++)
             {
+                OctreeNode child = Children[i];
                 if (child)
-                    Destroy(child);
+                {
+                    Destroy(child.gameObject);
+                    Children[i] = null;
+                }
             }
 
             // Clear our neighbors as this node is no longer used, we are more interested in its children (also for clarity in the editor)
@@ -371,12 +334,14 @@ namespace GeometryDetection
                 GameObject obj = new GameObject("Layer" + newDepth + "Node" + (i + 1));
                 obj.transform.parent = transform;
                 obj.transform.position = transform.position + IteratePositions(i);
+                obj.layer = LayerMask.NameToLayer("GeoDetection");
 
                 // Create and add our Node component to the object.
                 // Also set its correct Depth and Collider-Size.
                 GeometryNode node = obj.AddComponent<GeometryNode>();
                 node.Depth = newDepth;
                 node.ParentNode = this;
+                node.ParentTree = ParentTree;
                 node.DetectionCollider.size = DetectionCollider.size / 2f;
                 node.DetectionCollider.enabled = true;
 

@@ -7,13 +7,7 @@ namespace GeometryDetection
 {
     public class GeometryDetector : MonoBehaviour
     {
-        public enum Progress
-        {
-            Generating,
-            Processing,
-            Finished
-        }
-
+        #region Variables
         [Header("Data to spawn when no collider is given.")]
         [Header("There should only be 1 instance of this component!")]
         [SerializeField] private Vector3 _startPos = new Vector3(0f, 0f ,0f);
@@ -47,8 +41,15 @@ namespace GeometryDetection
         public UnityEvent GenerationFinished;
 
         // ---------- Possible Output Variables ----------
-        private Octree<GeometryNode> _nodeTree = new Octree<GeometryNode>();
-        public Octree<GeometryNode> NodeTree
+        private int _nodesCompleted;
+        public int NodesCompleted
+        {
+            get { return _nodesCompleted; }
+            internal set { _nodesCompleted = value; }
+        }
+
+        private Octree _nodeTree = new Octree();
+        public Octree NodeTree
         {
             get { return _nodeTree; }
         }
@@ -68,17 +69,19 @@ namespace GeometryDetection
         }
 
         // ----------------------------------------------
+        #endregion
 
         void Start()
         {
             GameObject obj = new GameObject("BaseNode");
             obj.transform.parent = transform;
-
-            GeometryNode comp = obj.AddComponent<GeometryNode>();
-            comp.DetectionCollider.size = _guideCollider ? _guideCollider.bounds.size : _startScale;
-
             obj.transform.position = _guideCollider ? _guideCollider.transform.position : _startPos;
-            NodeTree.BaseNode = obj.GetComponent<GeometryNode>();
+            obj.layer = LayerMask.NameToLayer("GeoDetection");
+
+            GeometryNode node = obj.AddComponent<GeometryNode>();
+            node.DetectionCollider.size = _guideCollider ? _guideCollider.bounds.size : _startScale;
+            
+            NodeTree.BaseNode = node;
 
             if (_guideCollider)
                 _guideCollider.enabled = false;
@@ -89,13 +92,13 @@ namespace GeometryDetection
             switch (CurrentProgress)
             {
                 case Progress.Generating:
-                    CurrentProgress = Progress.Processing;
-                    break;
-                case Progress.Processing:
-                    CurrentProgress = Progress.Finished;
-                    Debug.Log("Generation of octree has finished.");
+                    if (NodesCompleted == NodeTree.NodeCount)
+                    {
+                        CurrentProgress = Progress.Finished;
+                        Debug.Log("Generation Completed.");
 
-                    GenerationFinished.Invoke();
+                        GenerationFinished.Invoke();
+                    }
                     break;
                 case Progress.Finished:
                 default:

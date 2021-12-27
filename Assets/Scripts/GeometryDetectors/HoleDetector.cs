@@ -7,11 +7,13 @@ namespace GeometryDetection
     // Utilizes the already detected geometry and only tries to find holes or tunnels
     public class HoleDetector : MonoBehaviour
     {
+        #region Variables
         private GeometryDetector _geometryDetector;
         public GeometryDetector GeometryDetector 
         { 
             get { return _geometryDetector; } 
         }
+        #endregion
 
         private void Start()
         {
