@@ -77,7 +77,11 @@ namespace GeometryDetection
             DetectionRigidBody.isKinematic = true;
         }
 
-        private void Update()
+        // We utilize the FixedUpdate() instead of the Update() to make sure that every node gets loaded before we proceed.
+        // If we do not do this, it is possible for the Update() of the GeometryDetector to trigger before the new nodes.
+        // This causes the GeometryDetector to think the tree is completed even though this is not the case.
+        // Also, due to the FixedUpdate() being able to run multiple times, it seems to work faster. (not entirely sure)
+        private void FixedUpdate()
         {
             // Whenever a Node is added, it will only check its triggers on the next frame.
             // To make sure it doesn't check for empty to fast, make it wait a frame.

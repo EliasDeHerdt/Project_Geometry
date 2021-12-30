@@ -95,7 +95,7 @@ namespace GeometryDetection
                     if (NodesCompleted == NodeTree.NodeCount)
                     {
                         CurrentProgress = Progress.Finished;
-                        Debug.Log("Generation Completed.");
+                        Debug.Log("Generation Completed with " +  NodesCompleted + " Completed Nodes.");
 
                         GenerationFinished.Invoke();
                     }
