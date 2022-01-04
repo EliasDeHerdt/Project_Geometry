@@ -62,6 +62,8 @@ namespace GeometryDetection
             }
         }
 
+        protected virtual void Start() { }
+
         //public abstract void Collapse();
         protected abstract void Partition();
     }

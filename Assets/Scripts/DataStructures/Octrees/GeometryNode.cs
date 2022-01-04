@@ -8,18 +8,11 @@ namespace GeometryDetection
     public class GeometryNode : OctreeNode
     {
         #region Variables
-        private NodeSetUp _setUpProgress = NodeSetUp.SkipFrame;
-        public NodeSetUp SetUpProgress
+        private bool _containsGeometry = false;
+        public bool ContainsGeometry
         {
-            get { return _setUpProgress; }
-            private set { _setUpProgress = value; }
-        }
-
-        private Detection _nodeState = Detection.Detecting;
-        public Detection NodeState
-        {
-            get { return _nodeState; }
-            private set { _nodeState = value;}
+            get { return _containsGeometry; }
+            private set { _containsGeometry = value;}
         }
 
         private GeometryDetector _geometryDetector;
@@ -70,108 +63,147 @@ namespace GeometryDetection
             _geometryDetector = GetComponentInParent<GeometryDetector>();
 
             DetectionCollider = gameObject.AddComponent<BoxCollider>();
-            DetectionCollider.isTrigger = false;
+            DetectionCollider.isTrigger = true;
 
             DetectionRigidBody = gameObject.AddComponent<Rigidbody>();
             DetectionRigidBody.useGravity = false;
             DetectionRigidBody.isKinematic = true;
         }
 
-        // We utilize the FixedUpdate() instead of the Update() to make sure that every node gets loaded before we proceed.
-        // If we do not do this, it is possible for the Update() of the GeometryDetector to trigger before the new nodes.
-        // This causes the GeometryDetector to think the tree is completed even though this is not the case.
-        // Also, due to the FixedUpdate() being able to run multiple times, it seems to work faster. (not entirely sure)
-        private void FixedUpdate()
+        protected override void Start()
         {
-            // Whenever a Node is added, it will only check its triggers on the next frame.
-            // To make sure it doesn't check for empty to fast, make it wait a frame.
-            switch (SetUpProgress)
-            {
-                case NodeSetUp.SkipFrame:
-                    SetUpProgress = NodeSetUp.SetUpData;
-                    break;
-                case NodeSetUp.SetUpData:
-                    CheckIfEmpty();
-                    DetectionCollider.isTrigger = true;
+            base.Start();
 
-                    GeometryDetector.NodesCompleted++;
-                    SetUpProgress = NodeSetUp.Finished;
-                    break;
-                case NodeSetUp.Finished:
-                default:
-                    break;
-            }
+            // Detect if we overlap with anything
+            DetectGeometryAndNeighbors();
+            ProcessNodeState();
+
+            // Notify detector we are finished
+            GeometryDetector.NodesCompleted++;
         }
 
-        private void OnTriggerEnter(Collider other)
+        private void DetectGeometryAndNeighbors()
         {
-            GeometryNode otherNode;
-            if (other.gameObject.layer == LayerMask.NameToLayer("Geometry"))
+            // Get all colliders that overlap with our box
+            Collider[] overlaps = Physics.OverlapBox(transform.position, DetectionCollider.bounds.extents, transform.rotation, LayerMask.GetMask(new string[] { "Geometry", "GeoDetection" }));
+
+            // Loop over the found colliders and perform certain checks
+            foreach (Collider c in overlaps)
             {
-                NodeState = Detection.ContainsGeometry;
-
-                List<Vector3> colliderBounds = new List<Vector3>();
-                colliderBounds.Add(transform.position + new Vector3(DetectionCollider.bounds.extents.x, DetectionCollider.bounds.extents.y, DetectionCollider.bounds.extents.z));
-                colliderBounds.Add(transform.position + new Vector3(-DetectionCollider.bounds.extents.x, DetectionCollider.bounds.extents.y, DetectionCollider.bounds.extents.z));
-                colliderBounds.Add(transform.position + new Vector3(-DetectionCollider.bounds.extents.x, -DetectionCollider.bounds.extents.y, DetectionCollider.bounds.extents.z));
-                colliderBounds.Add(transform.position + new Vector3(DetectionCollider.bounds.extents.x, -DetectionCollider.bounds.extents.y, DetectionCollider.bounds.extents.z));
-                colliderBounds.Add(transform.position + new Vector3(DetectionCollider.bounds.extents.x, DetectionCollider.bounds.extents.y, -DetectionCollider.bounds.extents.z));
-                colliderBounds.Add(transform.position + new Vector3(-DetectionCollider.bounds.extents.x, DetectionCollider.bounds.extents.y, -DetectionCollider.bounds.extents.z));
-                colliderBounds.Add(transform.position + new Vector3(-DetectionCollider.bounds.extents.x, -DetectionCollider.bounds.extents.y, -DetectionCollider.bounds.extents.z));
-                colliderBounds.Add(transform.position + new Vector3(DetectionCollider.bounds.extents.x, -DetectionCollider.bounds.extents.y, -DetectionCollider.bounds.extents.z));
-
-                // Check if every corner of our cube is inside of our hit mesh.
-                // If this is the case, there is no need to partition any further as our entire collider will be terrain.
-                foreach (var point in colliderBounds)
+                GeometryNode otherNode;
+                if (!ContainsGeometry
+                    && c.gameObject.layer == LayerMask.NameToLayer("Geometry"))
                 {
-                    if (!other.bounds.Contains(point))
+                    ContainsGeometry = true;
+
+                    List<Vector3> colliderBounds = new List<Vector3>();
+                    colliderBounds.Add(transform.position + new Vector3(DetectionCollider.bounds.extents.x, DetectionCollider.bounds.extents.y, DetectionCollider.bounds.extents.z));
+                    colliderBounds.Add(transform.position + new Vector3(-DetectionCollider.bounds.extents.x, DetectionCollider.bounds.extents.y, DetectionCollider.bounds.extents.z));
+                    colliderBounds.Add(transform.position + new Vector3(-DetectionCollider.bounds.extents.x, -DetectionCollider.bounds.extents.y, DetectionCollider.bounds.extents.z));
+                    colliderBounds.Add(transform.position + new Vector3(DetectionCollider.bounds.extents.x, -DetectionCollider.bounds.extents.y, DetectionCollider.bounds.extents.z));
+                    colliderBounds.Add(transform.position + new Vector3(DetectionCollider.bounds.extents.x, DetectionCollider.bounds.extents.y, -DetectionCollider.bounds.extents.z));
+                    colliderBounds.Add(transform.position + new Vector3(-DetectionCollider.bounds.extents.x, DetectionCollider.bounds.extents.y, -DetectionCollider.bounds.extents.z));
+                    colliderBounds.Add(transform.position + new Vector3(-DetectionCollider.bounds.extents.x, -DetectionCollider.bounds.extents.y, -DetectionCollider.bounds.extents.z));
+                    colliderBounds.Add(transform.position + new Vector3(DetectionCollider.bounds.extents.x, -DetectionCollider.bounds.extents.y, -DetectionCollider.bounds.extents.z));
+
+                    // Check if every corner of our cube is inside of our hit mesh.
+                    // If this is the case, there is no need to partition any further as our entire collider will be terrain.
+                    foreach (var point in colliderBounds)
                     {
-                        Partition();
-                        return;
+                        if (!c.bounds.Contains(point))
+                        {
+                            Partition();
+                            break;
+                        }
                     }
                 }
-            }
-            else if (other.gameObject.layer == LayerMask.NameToLayer("GeoDetection")
-                && (otherNode = other.gameObject.GetComponent<GeometryNode>()))
-            {
-                StoreNeighbor(otherNode);
+                else if (c.gameObject.layer == LayerMask.NameToLayer("GeoDetection")
+                    && (otherNode = c.gameObject.GetComponent<GeometryNode>()))
+                {
+                    StoreNeighbor(otherNode);
+                }
             }
         }
 
-        private void CheckIfEmpty()
+        #region Partitioning
+        protected override void Partition()
         {
-            if (NodeState == Detection.Detecting
-                && !HasChildren)
+            if (!GeometryDetector)
             {
-                NodeState = Detection.Empty;
-                GeometryDetector.EmptyNodes.Add(this);
-
-                _meshFilter = gameObject.AddComponent<MeshFilter>();
-                _meshFilter.mesh = GeometryDetector.NodePreviewMesh;
-                ScaleMeshToNode(_meshFilter.mesh);
-
-                _nodeRenderer = gameObject.AddComponent<MeshRenderer>();
-                _nodeRenderer.sharedMaterial = GeometryDetector.NodePreviewMaterial;
+                Debug.LogError("GeometryNode: No GeometryDetector is present on this GameObject!");
+                return;
             }
+
+            // Check if it is allowed to go any deeper in our tree.
+            int newDepth = Depth + 1;
+            if (newDepth > GeometryDetector.MaxSteps
+                || HasChildren)
+            {
+                return;
+            }
+
+            // If any exist, destroy our previous children to re-partition.
+            //for (int i = 0; i < Children.Capacity; i++)
+            //{
+            //    OctreeNode child = Children[i];
+            //    if (child)
+            //    {
+            //        Destroy(child.gameObject);
+            //        Children[i] = null;
+            //    }
+            //}
+
+            // Clear our neighbors as this node is no longer used, we are more interested in its children (also for clarity in the editor)
+            Neighbors.Clear();
+
+            // Disable our Rigidbody to prevent faulty neighbor detection.
+            DetectionRigidBody.detectCollisions = false;
+
+            // Create a new Node for every child and set its parameters.
+            for (int i = 0; i < Children.Capacity; i++)
+            {
+                // Create our new object with the correct name, parent, and position.
+                GameObject obj = new GameObject("Layer" + newDepth + "Node" + (i + 1));
+                obj.transform.parent = transform;
+                obj.transform.position = transform.position + IteratePositions(i);
+                obj.layer = LayerMask.NameToLayer("GeoDetection");
+
+                // Create and add our Node component to the object.
+                // Also set its correct Depth and Collider-Size.
+                GeometryNode node = obj.AddComponent<GeometryNode>();
+                node.Depth = newDepth;
+                node.ParentNode = this;
+                node.ParentTree = ParentTree;
+                node.DetectionCollider.size = DetectionCollider.size / 2f;
+                node.DetectionCollider.enabled = true;
+
+                Children[i] = node;
+            }
+
+            // Disable our collider as it is no longer used (the children fill up the same space)
+            DetectionCollider.enabled = false;
         }
 
-        private void ScaleMeshToNode(Mesh mesh)
+        // This function returns the correct position for the child nodes based on which of the 8 nodes is being spawned.
+        private Vector3 IteratePositions(int step)
         {
-            Vector3[] baseVertices = mesh.vertices;
-            Vector3[] newVertices = new Vector3[baseVertices.Length];
-            for (int i = 0; i < baseVertices.Length; ++i)
+            int moveSide = step % 2;
+            int moveForward = (step / 2) % 2;
+            bool moveDown = (-Children.Capacity / 2 + step) >= 0;
+
+            float x = (DetectionCollider.bounds.extents.x / 2) * (1 + -moveSide * 2);
+            float y = (DetectionCollider.bounds.extents.y / 2);
+            float z = (DetectionCollider.bounds.extents.z / 2) * (1 + -moveForward * 2);
+
+            if (moveDown)
             {
-                Vector3 currVertex = baseVertices[i];
-
-                currVertex.x *= DetectionCollider.size.x;
-                currVertex.y *= DetectionCollider.size.y;
-                currVertex.z *= DetectionCollider.size.z;
-
-                newVertices[i] = currVertex;
+                y *= -1;
             }
-            mesh.vertices = newVertices;
-        }
 
+            return new Vector3(x, y, z);
+        }
+#endregion
+        #region Neighbors
         private void StoreNeighbor(GeometryNode foundNeighbor)
         {
             // Check if neighbor isn't already present in our list.
@@ -298,81 +330,64 @@ namespace GeometryDetection
 
             return NeighborDirection.Invalid;
         }
-
-        protected override void Partition()
+        #endregion
+        #region VisualizationAndProcessing
+        private void ProcessNodeState()
         {
-            if (!GeometryDetector)
+            if (!ContainsGeometry)
             {
-                Debug.LogError("GeometryNode: No GeometryDetector is present on this GameObject!");
-                return;
-            }
+                GeometryDetector.EmptyNodes.Add(this);
 
-            // Check if it is allowed to go any deeper in our tree.
-            int newDepth = Depth + 1;
-            if (newDepth > GeometryDetector.MaxSteps)
-            {
-                return;
-            }
-
-            // If any exist, destroy our previous children to re-partition.
-            for (int i = 0; i < Children.Capacity; i++)
-            {
-                OctreeNode child = Children[i];
-                if (child)
+                if (GeometryDetector.VisualizeAir)
                 {
-                    Destroy(child.gameObject);
-                    Children[i] = null;
+                    _meshFilter = gameObject.AddComponent<MeshFilter>();
+                    _meshFilter.mesh = GeometryDetector.NodePreviewMesh;
+                    ScaleMeshToNode(_meshFilter.mesh);
+
+                    _nodeRenderer = gameObject.AddComponent<MeshRenderer>();
+                    _nodeRenderer.sharedMaterial = GeometryDetector.NodePreviewMaterial;
                 }
             }
-
-            // Clear our neighbors as this node is no longer used, we are more interested in its children (also for clarity in the editor)
-            Neighbors.Clear();
-
-            // Disable our Rigidbody to prevent faulty neighbor detection.
-            DetectionRigidBody.detectCollisions = false;
-
-            // Create a new Node for every child and set its parameters.
-            for (int i = 0; i < Children.Capacity; i++)
+            else if (GeometryDetector.VisualizeGeometry)
             {
-                // Create our new object with the correct name, parent, and position.
-                GameObject obj = new GameObject("Layer" + newDepth + "Node" + (i + 1));
-                obj.transform.parent = transform;
-                obj.transform.position = transform.position + IteratePositions(i);
-                obj.layer = LayerMask.NameToLayer("GeoDetection");
+                //_meshFilter = gameObject.AddComponent<MeshFilter>();
+                //_meshFilter.mesh = GeometryDetector.NodePreviewMesh;
+                //ScaleMeshToNode(_meshFilter.mesh);
 
-                // Create and add our Node component to the object.
-                // Also set its correct Depth and Collider-Size.
-                GeometryNode node = obj.AddComponent<GeometryNode>();
-                node.Depth = newDepth;
-                node.ParentNode = this;
-                node.ParentTree = ParentTree;
-                node.DetectionCollider.size = DetectionCollider.size / 2f;
-                node.DetectionCollider.enabled = true;
-
-                Children[i] = node;
+                //_nodeRenderer = gameObject.AddComponent<MeshRenderer>();
+                //_nodeRenderer.sharedMaterial = GeometryDetector.NodePreviewMaterial;
             }
-
-            // Disable our collider as it is no longer used (the children fill up the same space)
-            DetectionCollider.enabled = false;
         }
 
-        // This function returns the correct position for the child nodes based on which of the 8 nodes is being spawned.
-        private Vector3 IteratePositions(int step)
+        private void ScaleMeshToNode(Mesh mesh)
         {
-            int moveSide = step % 2;
-            int moveForward = (step / 2) % 2;
-            bool moveDown = (-Children.Capacity / 2 + step) >= 0;
-
-            float x = (DetectionCollider.bounds.extents.x / 2) * (1 + -moveSide * 2);
-            float y = (DetectionCollider.bounds.extents.y / 2);
-            float z = (DetectionCollider.bounds.extents.z / 2) * (1 + -moveForward * 2);
-
-            if (moveDown)
+            Vector3[] baseVertices = mesh.vertices;
+            Vector3[] newVertices = new Vector3[baseVertices.Length];
+            for (int i = 0; i < baseVertices.Length; ++i)
             {
-                y *= -1;
-            }
+                Vector3 currVertex = baseVertices[i];
 
-            return new Vector3 (x, y, z);
+                currVertex.x *= DetectionCollider.size.x;
+                currVertex.y *= DetectionCollider.size.y;
+                currVertex.z *= DetectionCollider.size.z;
+
+                newVertices[i] = currVertex;
+            }
+            mesh.vertices = newVertices;
         }
+        #endregion
+        #region CleanUp
+        public void CleanUpColliders()
+        {
+            Destroy(DetectionCollider);
+            Destroy(DetectionRigidBody);
+
+            foreach(GeometryNode child in Children)
+            {
+                if (child)
+                    child.CleanUpColliders();
+            }
+        }
+        #endregion
     }
 }

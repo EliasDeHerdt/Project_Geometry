@@ -4,28 +4,6 @@ using UnityEngine;
 
 namespace GeometryDetection
 {
-    public enum Progress
-    {
-        Generating,
-        Processing,
-        Finished
-    }
-
-    public enum NodeSetUp
-    {
-        SkipFrame,
-        SetUpData,
-        Waiting,
-        Finished
-    }
-
-    public enum Detection
-    {
-        Detecting,
-        Empty,
-        ContainsGeometry
-    }
-
     // Direction is based on world(X, Y ,Z) where:
     // X = Left - Right
     // Y = Up - Down

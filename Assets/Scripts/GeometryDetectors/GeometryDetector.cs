@@ -25,6 +25,18 @@ namespace GeometryDetection
         }
 
         [Header("Visualization Parameters")]
+        [SerializeField] private bool _visualizeAir = true;
+        public bool VisualizeAir
+        {
+            get { return _visualizeAir; }
+        }
+
+        [SerializeField] private bool _visualizeGeometry = false;
+        public bool VisualizeGeometry
+        {
+            get { return _visualizeGeometry; }
+        }
+
         [SerializeField] private Mesh _nodePreviewMesh;
         public Mesh NodePreviewMesh
         {
@@ -61,11 +73,11 @@ namespace GeometryDetection
         }
 
         // -------- Initial Generation Variables --------
-        private Progress _currentProgress = Progress.Generating;
-        public Progress CurrentProgress
+        private bool _generationCompleted = false;
+        public bool GenerationCompleted
         {
-            get { return _currentProgress; }
-            set { _currentProgress = value; }
+            get { return _generationCompleted; }
+            set { _generationCompleted = value; }
         }
 
         // ----------------------------------------------
@@ -89,21 +101,19 @@ namespace GeometryDetection
 
         private void Update()
         {
-            switch (CurrentProgress)
+            if (!GenerationCompleted
+                && NodesCompleted == NodeTree.NodeCount)
             {
-                case Progress.Generating:
-                    if (NodesCompleted == NodeTree.NodeCount)
-                    {
-                        CurrentProgress = Progress.Finished;
-                        Debug.Log("Generation Completed with " +  NodesCompleted + " Completed Nodes.");
+                GenerationCompleted = true;
+                Debug.Log("Generation Completed with " + NodesCompleted + " Completed Nodes with a total of " + NodeTree.NodeCount + " Nodes.");
 
-                        GenerationFinished.Invoke();
-                    }
-                    break;
-                case Progress.Finished:
-                default:
-                    break;
+                GenerationFinished.Invoke();
             }
+        }
+
+        public void CleanUpTree()
+        {
+            (NodeTree.BaseNode as GeometryNode).CleanUpColliders();
         }
     }
 }
