@@ -13,6 +13,17 @@ namespace GeometryDetection
             Direction = direction;
         }
 
+        public static NeighborInfo FindNeighbor(GeometryNode neighbor, List<NeighborInfo> list)
+        {
+            foreach (NeighborInfo info in list)
+            {
+                if (info.Neighbor == neighbor)
+                    return info;
+            }
+
+            return new NeighborInfo();
+        }
+
         public GeometryNode Neighbor;
         public NeighborDirection Direction;
     }

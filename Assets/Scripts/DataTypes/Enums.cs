@@ -10,6 +10,7 @@ namespace GeometryDetection
     // Z = Front - Back
     public enum NeighborDirection
     {
+        None,
         Up,
         UpLeft,
         Left,

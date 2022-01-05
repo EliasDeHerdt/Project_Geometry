@@ -22,8 +22,16 @@ namespace GeometryDetection
                 _parentTree = value;
 
                 if (_parentTree != null)
-                    _parentTree.NodeCount++;
+                {
+                    _nodeID = _parentTree.NodeCount++;
+                }
             }
+        }
+
+        private int _nodeID = 0;
+        public int NodeID
+        {
+            get { return _nodeID; }
         }
 
         private int _depth = 0;

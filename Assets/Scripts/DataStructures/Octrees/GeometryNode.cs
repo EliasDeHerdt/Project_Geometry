@@ -88,11 +88,10 @@ namespace GeometryDetection
             Collider[] overlaps = Physics.OverlapBox(transform.position, DetectionCollider.bounds.extents, transform.rotation, LayerMask.GetMask(new string[] { "Geometry", "GeoDetection" }));
 
             // Loop over the found colliders and perform certain checks
-            foreach (Collider c in overlaps)
+            foreach (Collider collider in overlaps)
             {
                 GeometryNode otherNode;
-                if (!ContainsGeometry
-                    && c.gameObject.layer == LayerMask.NameToLayer("Geometry"))
+                if (collider.gameObject.layer == LayerMask.NameToLayer("Geometry"))
                 {
                     ContainsGeometry = true;
 
@@ -108,20 +107,37 @@ namespace GeometryDetection
 
                     // Check if every corner of our cube is inside of our hit mesh.
                     // If this is the case, there is no need to partition any further as our entire collider will be terrain.
-                    foreach (var point in colliderBounds)
+                    foreach (Vector3 point in colliderBounds)
                     {
-                        if (!c.bounds.Contains(point))
+                        if (!ColliderContainsPoint(DetectionCollider.transform, point, DetectionCollider.enabled))
                         {
                             Partition();
                             break;
                         }
                     }
                 }
-                else if (c.gameObject.layer == LayerMask.NameToLayer("GeoDetection")
-                    && (otherNode = c.gameObject.GetComponent<GeometryNode>()))
+                else if (collider.gameObject.layer == LayerMask.NameToLayer("GeoDetection")
+                    && (otherNode = collider.gameObject.GetComponent<GeometryNode>()))
                 {
                     StoreNeighbor(otherNode);
                 }
+            }
+        }
+
+        // Code taken from UnityForums: https://forum.unity.com/threads/bounds-contains-is-not-working-at-all-as-expected.483628/
+        private bool ColliderContainsPoint(Transform ColliderTransform, Vector3 Point, bool Enabled)
+        {
+            Vector3 localPos = ColliderTransform.InverseTransformPoint(Point);
+            if (Enabled 
+                && Mathf.Abs(localPos.x) < 0.5f 
+                && Mathf.Abs(localPos.y) < 0.5f 
+                && Mathf.Abs(localPos.z) < 0.5f)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
             }
         }
 
@@ -142,17 +158,6 @@ namespace GeometryDetection
                 return;
             }
 
-            // If any exist, destroy our previous children to re-partition.
-            //for (int i = 0; i < Children.Capacity; i++)
-            //{
-            //    OctreeNode child = Children[i];
-            //    if (child)
-            //    {
-            //        Destroy(child.gameObject);
-            //        Children[i] = null;
-            //    }
-            //}
-
             // Clear our neighbors as this node is no longer used, we are more interested in its children (also for clarity in the editor)
             Neighbors.Clear();
 
@@ -163,7 +168,7 @@ namespace GeometryDetection
             for (int i = 0; i < Children.Capacity; i++)
             {
                 // Create our new object with the correct name, parent, and position.
-                GameObject obj = new GameObject("Layer" + newDepth + "Node" + (i + 1));
+                GameObject obj = new GameObject("Layer" + newDepth + "Node" + ParentTree.NodeCount);
                 obj.transform.parent = transform;
                 obj.transform.position = transform.position + IteratePositions(i);
                 obj.layer = LayerMask.NameToLayer("GeoDetection");
@@ -207,13 +212,13 @@ namespace GeometryDetection
         private void StoreNeighbor(GeometryNode foundNeighbor)
         {
             // Check if neighbor isn't already present in our list.
-            NeighborInfo alreadyPresentCheck = FindNeighbor(foundNeighbor);
+            NeighborInfo alreadyPresentCheck = NeighborInfo.FindNeighbor(foundNeighbor, Neighbors);
             if (alreadyPresentCheck.Neighbor)
                 return;
 
             // Check if neighbors parent is already in our neighbor list.
             // If so, remove it first.
-            Neighbors.Remove(FindNeighbor(foundNeighbor.ParentNode));
+            Neighbors.Remove(NeighborInfo.FindNeighbor(foundNeighbor.ParentNode, Neighbors));
 
             // Check where the neigbor is located compared to this node
             NeighborDirection direction = GetDirectionToNode(foundNeighbor);
@@ -228,17 +233,6 @@ namespace GeometryDetection
 
             // Add ourselves to the neighbor.
             foundNeighbor.StoreNeighbor(this);
-        }
-
-        private NeighborInfo FindNeighbor(GeometryNode neighbor)
-        {
-            foreach (NeighborInfo info in Neighbors)
-            {
-                if (info.Neighbor == neighbor)
-                    return info;
-            }
-
-            return new NeighborInfo();
         }
 
         private NeighborDirection GetDirectionToNode(GeometryNode node)
@@ -329,6 +323,25 @@ namespace GeometryDetection
             #endregion
 
             return NeighborDirection.Invalid;
+        }
+
+        public List<NeighborInfo> GetNeighbors(NeighborDirection direction = NeighborDirection.None)
+        {
+            if (direction == NeighborDirection.None)
+            {
+                return Neighbors;
+            }
+
+            List<NeighborInfo> output = new List<NeighborInfo>();
+            foreach (NeighborInfo neighbor in Neighbors)
+            {
+                if (neighbor.Direction == direction)
+                {
+                    output.Add(neighbor);
+                }
+            }
+
+            return output;
         }
         #endregion
         #region VisualizationAndProcessing
