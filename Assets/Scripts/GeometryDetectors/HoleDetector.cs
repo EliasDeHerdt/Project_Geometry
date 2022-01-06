@@ -96,10 +96,6 @@ namespace GeometryDetection
                         node.NodeRenderer.sharedMaterial = TunnelMaterial;
                     }
                 }
-                else
-                {
-                    Debug.Log("Only found " + TerrainChecks.SuccesfullChecks + " succesfull directions.");
-                }
             }
 
             Debug.Log("Finished Tunnel Detection.");
