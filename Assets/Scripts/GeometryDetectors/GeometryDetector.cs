@@ -43,10 +43,16 @@ namespace GeometryDetection
             get { return _nodePreviewMesh; }
         }
 
-        [SerializeField] private Material _nodePreviewMaterial;
-        public Material NodePreviewMaterial
+        [SerializeField] private Material _airMaterial;
+        public Material AirMaterial
         {
-            get { return _nodePreviewMaterial; }
+            get { return _airMaterial; }
+        }
+
+        [SerializeField] private Material _geometryMaterial;
+        public Material GeometryMaterial
+        {
+            get { return _geometryMaterial; }
         }
 
         [Header("Events")]

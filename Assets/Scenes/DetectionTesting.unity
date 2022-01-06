@@ -138,7 +138,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &20107333
 Transform:
   m_ObjectHideFlags: 0
@@ -186,6 +186,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _maxDiameter: 10
+  _minimumSuccesfullChecks: 4
+  _visualizeTunnels: 1
   _tunnelMaterial: {fileID: 2100000, guid: e40b951b05b439345bacbb415266bcaa, type: 2}
 --- !u!1 &280068706
 GameObject:
@@ -1236,7 +1238,7 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 990030235}
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: -1.51}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children:
@@ -1860,11 +1862,23 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 271021387685627197, guid: 6bb6cef3e44d9a24f9136f02e2846bda, type: 3}
       propertyPath: _maxSteps
-      value: 4
+      value: 6
       objectReference: {fileID: 0}
     - target: {fileID: 271021387685627197, guid: 6bb6cef3e44d9a24f9136f02e2846bda, type: 3}
+      propertyPath: _airMaterial
+      value: 
+      objectReference: {fileID: 2100000, guid: b1ed4d7c9aa9efa4881c9afd749f43ec, type: 2}
+    - target: {fileID: 271021387685627197, guid: 6bb6cef3e44d9a24f9136f02e2846bda, type: 3}
       propertyPath: _visualizeAir
-      value: 1
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 271021387685627197, guid: 6bb6cef3e44d9a24f9136f02e2846bda, type: 3}
+      propertyPath: _geometryMaterial
+      value: 
+      objectReference: {fileID: 2100000, guid: e5243b49cb50d714fb94ff361488963f, type: 2}
+    - target: {fileID: 271021387685627197, guid: 6bb6cef3e44d9a24f9136f02e2846bda, type: 3}
+      propertyPath: _visualizeGeometry
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 271021387685627197, guid: 6bb6cef3e44d9a24f9136f02e2846bda, type: 3}
       propertyPath: _nodePreviewMaterial
@@ -1900,7 +1914,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 271021387685627197, guid: 6bb6cef3e44d9a24f9136f02e2846bda, type: 3}
       propertyPath: GenerationFinished.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
-      value: 
+      value: CleanUpTree
       objectReference: {fileID: 0}
     - target: {fileID: 271021387685627197, guid: 6bb6cef3e44d9a24f9136f02e2846bda, type: 3}
       propertyPath: GenerationFinished.m_PersistentCalls.m_Calls.Array.data[1].m_MethodName

@@ -8,11 +8,27 @@ namespace GeometryDetection
     public class HoleDetector : MonoBehaviour
     {
         #region Variables
+        [Header("Detection Parameters")]
         [SerializeField] private float _maxDiameter = 10;
         public float MaxDiameter 
         { 
             get { return _maxDiameter; } 
             set { _maxDiameter = value; }
+        }
+
+        [SerializeField] private int _minimumSuccesfullChecks = 4;
+        public int MinimumSuccesfullChecks
+        {
+            get { return _minimumSuccesfullChecks; }
+            set { _minimumSuccesfullChecks = value; }
+        }
+
+        [Header("Visualization Parameters")]
+        [SerializeField] private bool _visualizeTunnels = true;
+        public bool VisualizeTunnels
+        {
+            get { return _visualizeTunnels; }
+            set { _visualizeTunnels = value;}
         }
 
         [SerializeField] private Material _tunnelMaterial = null;
@@ -25,6 +41,13 @@ namespace GeometryDetection
         public GeometryDetector GeometryDetector 
         { 
             get { return _geometryDetector; } 
+        }
+
+        private List<GeometryNode> _tunnelNodes = new List<GeometryNode>();
+        public List<GeometryNode> TunnelNodes
+        {
+            get { return _tunnelNodes; }
+            private set { _tunnelNodes = value; }
         }
         #endregion
 
@@ -43,26 +66,43 @@ namespace GeometryDetection
             // Start detecting the holes.
             foreach(GeometryNode node in geometry)
             {
-                bool TerrainAllDirections = true;
+                DetectionInfo TerrainChecks = new DetectionInfo();
                 List<GeometryNode> geometryNodes = new List<GeometryNode>();
 
                 // Check Top for terrain.
-                TerrainAllDirections = (TerrainAllDirections && CheckTopForTerrain(node));
+                TerrainChecks.TopHit = CheckTopForTerrain(node);
 
                 // Check Bottom for terrain.
-                TerrainAllDirections = (TerrainAllDirections && CheckBottomForTerrain(node));
+                TerrainChecks.BottomHit = CheckBottomForTerrain(node);
 
                 // Check Left for terrain.
-                TerrainAllDirections = (TerrainAllDirections && CheckLeftForTerrain(node));
+                TerrainChecks.LeftHit = CheckLeftForTerrain(node);
 
                 // Check Right for terrain.
-                TerrainAllDirections = (TerrainAllDirections && CheckRightForTerrain(node));
+                TerrainChecks.RightHit = CheckRightForTerrain(node);
 
-                if (TerrainAllDirections)
+                // Check Front for terrain.
+                TerrainChecks.FrontHit = CheckFrontForTerrain(node);
+
+                // Check Back for terrain.
+                TerrainChecks.BackHit = CheckBackForTerrain(node);
+
+                if (TerrainChecks.SuccesfullChecks >= MinimumSuccesfullChecks)
                 {
-                    node.NodeRenderer.sharedMaterial = TunnelMaterial;
+                    TunnelNodes.Add(node);
+
+                    if (VisualizeTunnels)
+                    {
+                        node.NodeRenderer.sharedMaterial = TunnelMaterial;
+                    }
+                }
+                else
+                {
+                    Debug.Log("Only found " + TerrainChecks.SuccesfullChecks + " succesfull directions.");
                 }
             }
+
+            Debug.Log("Finished Tunnel Detection.");
         }
 
         #region DirectionalChecks
@@ -122,6 +162,38 @@ namespace GeometryDetection
             {
                 if (neighbor.Neighbor.ContainsGeometry
                     || CheckRightForTerrain(neighbor.Neighbor))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool CheckFrontForTerrain(GeometryNode node)
+        {
+            List<NeighborInfo> neighbors = node.GetNeighbors(NeighborDirection.Front);
+
+            foreach (NeighborInfo neighbor in neighbors)
+            {
+                if (neighbor.Neighbor.ContainsGeometry
+                    || CheckFrontForTerrain(neighbor.Neighbor))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool CheckBackForTerrain(GeometryNode node)
+        {
+            List<NeighborInfo> neighbors = node.GetNeighbors(NeighborDirection.Back);
+
+            foreach (NeighborInfo neighbor in neighbors)
+            {
+                if (neighbor.Neighbor.ContainsGeometry
+                    || CheckBackForTerrain(neighbor.Neighbor))
                 {
                     return true;
                 }

@@ -52,7 +52,19 @@ namespace GeometryDetection
         private Renderer _nodeRenderer;
         public Renderer NodeRenderer
         {
-            get { return _nodeRenderer; }
+            get 
+            { 
+                if (_nodeRenderer == null)
+                {
+                    _meshFilter = gameObject.AddComponent<MeshFilter>();
+                    _meshFilter.mesh = GeometryDetector.NodePreviewMesh;
+                    ScaleMeshToNode(_meshFilter.mesh);
+
+                    _nodeRenderer = gameObject.AddComponent<MeshRenderer>();
+                }
+
+                return _nodeRenderer; 
+            }
         }
         #endregion
 
@@ -353,22 +365,13 @@ namespace GeometryDetection
 
                 if (GeometryDetector.VisualizeAir)
                 {
-                    _meshFilter = gameObject.AddComponent<MeshFilter>();
-                    _meshFilter.mesh = GeometryDetector.NodePreviewMesh;
-                    ScaleMeshToNode(_meshFilter.mesh);
-
-                    _nodeRenderer = gameObject.AddComponent<MeshRenderer>();
-                    _nodeRenderer.sharedMaterial = GeometryDetector.NodePreviewMaterial;
+                    NodeRenderer.sharedMaterial = GeometryDetector.AirMaterial;
                 }
             }
-            else if (GeometryDetector.VisualizeGeometry)
+            else if (GeometryDetector.VisualizeGeometry
+                && !HasChildren)
             {
-                //_meshFilter = gameObject.AddComponent<MeshFilter>();
-                //_meshFilter.mesh = GeometryDetector.NodePreviewMesh;
-                //ScaleMeshToNode(_meshFilter.mesh);
-
-                //_nodeRenderer = gameObject.AddComponent<MeshRenderer>();
-                //_nodeRenderer.sharedMaterial = GeometryDetector.NodePreviewMaterial;
+                NodeRenderer.sharedMaterial = GeometryDetector.GeometryMaterial;
             }
         }
 
