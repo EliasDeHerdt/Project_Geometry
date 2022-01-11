@@ -33,11 +33,11 @@ namespace GeometryDetection
     {
         public int SuccesfullChecks;
 
-        private bool _topHit;
-        public bool TopHit 
+        private bool _upHit;
+        public bool UpHit 
         { 
-            get { return _topHit; } 
-            set { if (_topHit != value) SuccesfullChecks += value ? 1 : -1; _topHit = value; } 
+            get { return _upHit; } 
+            set { if (_upHit != value) SuccesfullChecks += value ? 1 : -1; _upHit = value; } 
         }
 
         private bool _leftHit;
@@ -68,11 +68,44 @@ namespace GeometryDetection
             set { if (_frontHit != value) SuccesfullChecks += value ? 1 : -1; _frontHit = value; }
         }
 
-        private bool _bottomHit;
-        public bool BottomHit 
+        private bool _downHit;
+        public bool DownHit 
         { 
-            get { return _bottomHit; }
-            set { if (_bottomHit != value) SuccesfullChecks += value ? 1 : -1; _bottomHit = value; }
+            get { return _downHit; }
+            set { if (_downHit != value) SuccesfullChecks += value ? 1 : -1; _downHit = value; }
+        }
+    }
+
+    [System.Serializable]
+    public struct DetectedGeometry
+    {
+        public DetectedGeometry(List<GeometryNode> nodes, GeometryType type = GeometryType.None, int exits = 0)
+        {
+            Nodes = nodes;
+            _type = type;
+            Exits = exits;
+        }
+
+        public List<GeometryNode> Nodes;
+        private GeometryType _type;
+        public int Exits;
+
+        // The type can only be changed when the type is None.
+        // To force a changen use the OverrideGeometryType(GeometryType type) function
+        public GeometryType GeometryType
+        {
+            get { return _type;}
+            set 
+            {
+                if(_type == GeometryType.None)
+                    _type = value; 
+            }
+        }
+
+        // Force a change to the type.
+        public void OverrideGeometryType(GeometryType type)
+        {
+            _type = type;
         }
     }
 }

@@ -39,4 +39,11 @@ namespace GeometryDetection
         BackUpRight,
         Invalid
     }
+
+    public enum GeometryType
+    {
+        None,
+        Hole,
+        Tunnel
+    }
 }

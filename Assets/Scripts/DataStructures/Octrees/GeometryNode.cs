@@ -96,6 +96,11 @@ namespace GeometryDetection
 
         private void DetectGeometryAndNeighbors()
         {
+            if (NodeID == 259)
+            {
+                Debug.Log("Reached node");
+            }
+
             // Get all colliders that overlap with our box
             Collider[] overlaps = Physics.OverlapBox(transform.position, DetectionCollider.bounds.extents, transform.rotation, LayerMask.GetMask(new string[] { "Geometry", "GeoDetection" }));
 
@@ -121,7 +126,7 @@ namespace GeometryDetection
                     // If this is the case, there is no need to partition any further as our entire collider will be terrain.
                     foreach (Vector3 point in colliderBounds)
                     {
-                        if (!ColliderContainsPoint(DetectionCollider.transform, point, DetectionCollider.enabled))
+                        if (!ColliderContainsPoint(collider.transform, point, DetectionCollider.enabled))
                         {
                             Partition();
                             break;
