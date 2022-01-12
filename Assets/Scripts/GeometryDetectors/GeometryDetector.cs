@@ -18,6 +18,12 @@ namespace GeometryDetection
         [SerializeField] private Collider _guideCollider;
 
         [Header("Detection Parameters")]
+        [SerializeField] private int _minSteps = 4;
+        public int MinSteps
+        {
+            get { return _minSteps; }
+        }
+
         [SerializeField] private int _maxSteps = 5;
         public int MaxSteps
         { 

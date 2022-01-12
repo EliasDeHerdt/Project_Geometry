@@ -5,7 +5,7 @@ using UnityEngine;
 namespace GeometryDetection
 {
     // Utilizes the already detected geometry and only tries to find holes or tunnels
-    public class HoleDetector : MonoBehaviour
+    public class HoleAndTunnelDetector : MonoBehaviour
     {
         #region Variables
         [Header("Detection Parameters")]
@@ -67,6 +67,7 @@ namespace GeometryDetection
 
         public void DetectHoles()
         {
+            // Create new wrapper class that stores Nodes and extra information unique to the hole detector
             List<GeometryNode> geometry = GeometryDetector.EmptyNodes;
             Debug.Log("Pulled in data.");
 
@@ -74,35 +75,49 @@ namespace GeometryDetection
             foreach(GeometryNode node in geometry)
             {
                 DetectionInfo TerrainChecks = new DetectionInfo();
-                List<GeometryNode> geometryNodes = new List<GeometryNode>();
+                List<GeometryNode> usedNodes = new List<GeometryNode>();
 
                 // Check Top for terrain.
-                TerrainChecks.UpHit = CheckDirectionForTerrain(NeighborDirection.Up, node, geometryNodes);
+                TerrainChecks.UpHit = CheckDirectionForTerrain(NeighborDirection.Up, node, usedNodes);
 
                 // Check Bottom for terrain.
-                TerrainChecks.DownHit = CheckDirectionForTerrain(NeighborDirection.Down, node, geometryNodes);
+                TerrainChecks.DownHit = CheckDirectionForTerrain(NeighborDirection.Down, node, usedNodes);
 
                 // Check Left for terrain.
-                TerrainChecks.LeftHit = CheckDirectionForTerrain(NeighborDirection.Left, node, geometryNodes);
+                TerrainChecks.LeftHit = CheckDirectionForTerrain(NeighborDirection.Left, node, usedNodes);
 
                 // Check Right for terrain.
-                TerrainChecks.RightHit = CheckDirectionForTerrain(NeighborDirection.Right, node, geometryNodes);
+                TerrainChecks.RightHit = CheckDirectionForTerrain(NeighborDirection.Right, node, usedNodes);
 
                 // Check Front for terrain.
-                TerrainChecks.FrontHit = CheckDirectionForTerrain(NeighborDirection.Front, node, geometryNodes);
+                TerrainChecks.FrontHit = CheckDirectionForTerrain(NeighborDirection.Front, node, usedNodes);
 
                 // Check Back for terrain.
-                TerrainChecks.BackHit = CheckDirectionForTerrain(NeighborDirection.Back, node, geometryNodes);
+                TerrainChecks.BackHit = CheckDirectionForTerrain(NeighborDirection.Back, node, usedNodes);
 
-                DetectedGeometry detectedGeometry = new DetectedGeometry(geometryNodes);
-                CheckGeometry(TerrainChecks, ref detectedGeometry);
-
-                if (detectedGeometry.GeometryType != GeometryType.None)
+                DetectedGeometry detectedGeometry = new DetectedGeometry(usedNodes);
+                if (CheckGeometry(TerrainChecks, ref detectedGeometry))
                 {
-                    TunnelNodes.Add(detectedGeometry);
+                    foreach(GeometryType GeoType in detectedGeometry.MarkedGeometry)
+                    {
+                        switch (GeoType)
+                        {
+                            case GeometryType.Hole:
+                                HolesNodes.Add(detectedGeometry);
+                                break;
+                            case GeometryType.Tunnel:
+                                TunnelNodes.Add(detectedGeometry);
+                                break;
+                            default: break;
+                        }
+                    }
+
                     if (VisualizeTunnels)
                     {
-                        node.NodeRenderer.sharedMaterial = TunnelMaterial;
+                        foreach (GeometryNode usedNode in usedNodes)
+                        {
+                            usedNode.NodeRenderer.sharedMaterial = TunnelMaterial;
+                        }
                     }
                 }
             }
@@ -118,6 +133,8 @@ namespace GeometryDetection
             foreach (NeighborInfo neighbor in neighbors)
             {
                 if (neighbor.Neighbor.ContainsGeometry
+                    || node.MarkedAs.Contains(GeometryType.Hole)
+                    || node.MarkedAs.Contains(GeometryType.Tunnel)
                     || CheckDirectionForTerrain(direction, neighbor.Neighbor, usedNodes))
                 {
                     usedNodes.Add(node);
@@ -129,23 +146,59 @@ namespace GeometryDetection
         }
         #endregion
         #region GeometryChecks
-        private void CheckGeometry(DetectionInfo detectedTerrain, ref DetectedGeometry detectedGeometry)
+        private bool CheckGeometry(DetectionInfo detectedTerrain, ref DetectedGeometry detectedGeometry)
         {
             if (detectedTerrain.SuccesfullChecks < MinimumSuccesfullChecks)
-                return;
+                return false;
 
-            detectedGeometry.GeometryType = HoleCheck(detectedTerrain);
-            detectedGeometry.GeometryType = TunnelCheck(detectedTerrain);
+            bool succesfull = false;
+
+            DetectExits(ref detectedGeometry);
+            succesfull = HoleCheck(detectedTerrain, ref detectedGeometry) || succesfull;
+            succesfull = TunnelCheck(detectedTerrain, ref detectedGeometry) || succesfull;
+
+            foreach (GeometryNode node in detectedGeometry.Nodes)
+            {
+                foreach(GeometryType GeoType in detectedGeometry.MarkedGeometry)
+                {
+                    node.MarkedAs.Add(GeoType);
+                }
+            }
+
+            return succesfull;
         }
 
-        private GeometryType TunnelCheck(DetectionInfo detectedTerrain)
+        private void DetectExits(ref DetectedGeometry detectedGeometry)
         {
-            return GeometryType.Tunnel;
+
         }
 
-        private GeometryType HoleCheck(DetectionInfo detectedTerrain)
+        private bool TunnelCheck(DetectionInfo detectedTerrain, ref DetectedGeometry detectedGeometry)
         {
-            return GeometryType.None;
+            int succesfullHitCount = 0;
+            succesfullHitCount += (detectedTerrain.UpHit && detectedTerrain.DownHit) ? 1 : 0;
+            succesfullHitCount += (detectedTerrain.RightHit && detectedTerrain.LeftHit) ? 1 : 0;
+            succesfullHitCount += (detectedTerrain.FrontHit && detectedTerrain.BackHit) ? 1 : 0;
+
+            if (succesfullHitCount == 2)
+            {
+                detectedGeometry.MarkedGeometry.Add(GeometryType.Tunnel);
+                return true;
+            }
+
+            return false;
+        }
+
+
+        private bool HoleCheck(DetectionInfo detectedTerrain, ref DetectedGeometry detectedGeometry)
+        {
+            if (detectedTerrain.SuccesfullChecks > 4)
+            {
+                detectedGeometry.MarkedGeometry.Add(GeometryType.Hole);
+                return true;
+            }
+
+            return false;
         }
         #endregion
     }

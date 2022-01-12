@@ -66,6 +66,13 @@ namespace GeometryDetection
                 return _nodeRenderer; 
             }
         }
+
+        private HashSet<GeometryType> _markedAs = new HashSet<GeometryType>();
+        public HashSet<GeometryType> MarkedAs
+        {
+            get { return _markedAs; }
+            set { _markedAs = value; }
+        }
         #endregion
 
         protected override void Awake()
@@ -96,11 +103,6 @@ namespace GeometryDetection
 
         private void DetectGeometryAndNeighbors()
         {
-            if (NodeID == 259)
-            {
-                Debug.Log("Reached node");
-            }
-
             // Get all colliders that overlap with our box
             Collider[] overlaps = Physics.OverlapBox(transform.position, DetectionCollider.bounds.extents, transform.rotation, LayerMask.GetMask(new string[] { "Geometry", "GeoDetection" }));
 
@@ -138,6 +140,12 @@ namespace GeometryDetection
                 {
                     StoreNeighbor(otherNode);
                 }
+            }
+
+            // Force a partition if we haven't reached our minimum steps yet
+            if (Depth <= GeometryDetector.MinSteps)
+            {
+                Partition();
             }
         }
 

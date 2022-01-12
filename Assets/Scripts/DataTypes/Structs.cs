@@ -79,33 +79,21 @@ namespace GeometryDetection
     [System.Serializable]
     public struct DetectedGeometry
     {
-        public DetectedGeometry(List<GeometryNode> nodes, GeometryType type = GeometryType.None, int exits = 0)
+        public DetectedGeometry(List<GeometryNode> nodes, int exits = 0)
         {
             Nodes = nodes;
-            _type = type;
+            _types = new HashSet<GeometryType>();
             Exits = exits;
         }
 
         public List<GeometryNode> Nodes;
-        private GeometryType _type;
+        private HashSet<GeometryType> _types;
         public int Exits;
 
-        // The type can only be changed when the type is None.
-        // To force a changen use the OverrideGeometryType(GeometryType type) function
-        public GeometryType GeometryType
+        public HashSet<GeometryType> MarkedGeometry
         {
-            get { return _type;}
-            set 
-            {
-                if(_type == GeometryType.None)
-                    _type = value; 
-            }
-        }
-
-        // Force a change to the type.
-        public void OverrideGeometryType(GeometryType type)
-        {
-            _type = type;
+            get { return _types; }
+            set { _types = value; }
         }
     }
 }
