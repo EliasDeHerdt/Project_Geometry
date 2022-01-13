@@ -1,5 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
+using Unity.Collections;
+using Unity.Jobs;
 using UnityEngine;
 
 namespace GeometryDetection
@@ -96,4 +98,6 @@ namespace GeometryDetection
             set { _types = value; }
         }
     }
+
+    // Jobs
 }

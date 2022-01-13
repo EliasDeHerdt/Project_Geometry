@@ -1,5 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading;
+using Unity.Collections;
 using UnityEngine;
 
 
@@ -92,6 +94,10 @@ namespace GeometryDetection
         protected override void Start()
         {
             base.Start();
+
+            //Thread thread = new Thread(DetectGeometryAndNeighbors);
+            //thread.Start();
+            //thread.Join();
 
             // Detect if we overlap with anything
             DetectGeometryAndNeighbors();
