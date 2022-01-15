@@ -81,23 +81,27 @@ namespace GeometryDetection
     [System.Serializable]
     public struct DetectedGeometry
     {
-        public DetectedGeometry(List<GeometryNode> nodes, int exits = 0)
+        public DetectedGeometry(List<GeometryNode> nodes)
         {
             Nodes = nodes;
-            _types = new HashSet<GeometryType>();
-            Exits = exits;
+            Exits = new List<Exit>();
+            MarkedGeometry = new HashSet<GeometryType>();
         }
 
         public List<GeometryNode> Nodes;
-        private HashSet<GeometryType> _types;
-        public int Exits;
-
-        public HashSet<GeometryType> MarkedGeometry
-        {
-            get { return _types; }
-            set { _types = value; }
-        }
+        public List<Exit> Exits;
+        public HashSet<GeometryType> MarkedGeometry;
     }
 
-    // Jobs
+    public struct Exit
+    {
+        public Exit(List<GeometryNode> nodes, DetectedGeometry parent)
+        {
+            Nodes = nodes;
+            ParentGeometry = parent;
+        }
+
+        public List<GeometryNode> Nodes;
+        DetectedGeometry ParentGeometry;
+    }
 }

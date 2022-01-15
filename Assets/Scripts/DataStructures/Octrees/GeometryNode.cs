@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using Unity.Collections;
 using UnityEngine;
-
+using UnityEngine.Profiling;
 
 namespace GeometryDetection
 {
@@ -119,6 +119,9 @@ namespace GeometryDetection
                 if (collider.gameObject.layer == LayerMask.NameToLayer("Geometry"))
                 {
                     ContainsGeometry = true;
+                    
+                    // If ClosestPoint returns the same point, it's inside of the collider.
+                    // collider.ClosestPoint()
 
                     List<Vector3> colliderBounds = new List<Vector3>();
                     colliderBounds.Add(transform.position + new Vector3(DetectionCollider.bounds.extents.x, DetectionCollider.bounds.extents.y, DetectionCollider.bounds.extents.z));
@@ -153,6 +156,7 @@ namespace GeometryDetection
             {
                 Partition();
             }
+            
         }
 
         // Code taken from UnityForums: https://forum.unity.com/threads/bounds-contains-is-not-working-at-all-as-expected.483628/
@@ -175,6 +179,7 @@ namespace GeometryDetection
         #region Partitioning
         protected override void Partition()
         {
+            Profiler.BeginSample("Partition");
             if (!GeometryDetector)
             {
                 Debug.LogError("GeometryNode: No GeometryDetector is present on this GameObject!");
@@ -218,6 +223,7 @@ namespace GeometryDetection
 
             // Disable our collider as it is no longer used (the children fill up the same space)
             DetectionCollider.enabled = false;
+            Profiler.EndSample();
         }
 
         // This function returns the correct position for the child nodes based on which of the 8 nodes is being spawned.
