@@ -84,54 +84,24 @@ namespace GeometryDetection
             List<GeometryNode> geometry = GeometryDetector.EmptyNodes;
             Debug.Log("Pulled in data.");
 
-            List<GeometryNode> potentialExits = new List<GeometryNode>();
-
             // Start detecting the holes.
             foreach (GeometryNode node in geometry)
             {
-                DetectionInfo TerrainChecks = new DetectionInfo();
+                List<GeometryNode> potentialExits = new List<GeometryNode>();
+                DetectedGeometry detectedGeometry = new DetectedGeometry(new List<GeometryNode>());
+                DetectTunnelOrHole(node, ref detectedGeometry, potentialExits);
 
-                bool isNeighbor = false;
-                int neighboringHits = 0;
-                List<GeometryNode> usedNodes = new List<GeometryNode>();
-
-                // Check Top for terrain.
-                TerrainChecks.UpHit = CheckDirectionForTerrain(NeighborDirection.Up, node, usedNodes, out isNeighbor);
-                neighboringHits += isNeighbor ? 1 : 0;
-
-                // Check Bottom for terrain.
-                TerrainChecks.DownHit = CheckDirectionForTerrain(NeighborDirection.Down, node, usedNodes, out isNeighbor);
-                neighboringHits += isNeighbor ? 1 : 0;
-
-                // Check Left for terrain.
-                TerrainChecks.LeftHit = CheckDirectionForTerrain(NeighborDirection.Left, node, usedNodes, out isNeighbor);
-                neighboringHits += isNeighbor ? 1 : 0;
-
-                // Check Right for terrain.
-                TerrainChecks.RightHit = CheckDirectionForTerrain(NeighborDirection.Right, node, usedNodes, out isNeighbor);
-                neighboringHits += isNeighbor ? 1 : 0;
-
-                // Check Front for terrain.
-                TerrainChecks.FrontHit = CheckDirectionForTerrain(NeighborDirection.Front, node, usedNodes, out isNeighbor);
-                neighboringHits += isNeighbor ? 1 : 0;
-
-                // Check Back for terrain.
-                TerrainChecks.BackHit = CheckDirectionForTerrain(NeighborDirection.Back, node, usedNodes, out isNeighbor);
-                neighboringHits += isNeighbor ? 1 : 0;
-
-                // To speed up the checks for the exits, we save the nodes that directly neighbor geometry on 2 sides.
-                if (neighboringHits == 2)
+                if (detectedGeometry.Nodes.Count > 0)
                 {
-                    potentialExits.Add(node);
-                }
-
-                // needs to leave the for loop
-                DetectedGeometry detectedGeometry = new DetectedGeometry(usedNodes);
-                if (CheckGeometry(TerrainChecks, ref detectedGeometry))
-                {
-                    foreach(GeometryType GeoType in detectedGeometry.MarkedGeometry)
+                    // Add the exit nodes to the detected geometry
+                    foreach (GeometryNode exit in potentialExits)
                     {
-                        switch (GeoType)
+                        DetectIfPartOfExit(exit);
+                    }
+
+                    foreach (GeometryType geoType in detectedGeometry.MarkedGeometry)
+                    {
+                        switch (geoType)
                         {
                             case GeometryType.Hole:
                                 Holes.Add(detectedGeometry);
@@ -139,30 +109,80 @@ namespace GeometryDetection
                             case GeometryType.Tunnel:
                                 Tunnels.Add(detectedGeometry);
                                 break;
-                            default: break;
-                        }
-                    }
-
-                    if (VisualizeTunnels)
-                    {
-                        foreach (GeometryNode usedNode in usedNodes)
-                        {
-                            usedNode.NodeRenderer.sharedMaterial = TunnelMaterial;
                         }
                     }
                 }
+
+                
             }
 
-            foreach(GeometryNode node in potentialExits)
-            {
-                DetectIfPartOfExit(node);
-            }
+            
 
-            Debug.Log("Finished Tunnel Detection.");
+            VisualizeData();
+            Debug.Log("Finished Tunnel Detection with " + Tunnels.Count + " tunnels and " + Holes.Count + " holes.");
         }
 
         #region DirectionalChecks
-        private bool CheckDirectionForTerrain(NeighborDirection direction, GeometryNode node, List<GeometryNode> usedNodes, out bool foundOnFirstIteration)
+        private void DetectTunnelOrHole(GeometryNode node, ref DetectedGeometry detectedGeometry, List<GeometryNode> potentialExits)
+        {
+            if (node.ContainsGeometry
+                || node.MarkedAs.Contains(GeometryType.Hole)
+                || node.MarkedAs.Contains(GeometryType.Tunnel))
+            {
+                return;
+            }
+
+            bool isNeighbor = false;
+            int neighboringHits = 0;
+            DetectionInfo TerrainChecks = new DetectionInfo();
+
+            // Check Top for terrain.
+            TerrainChecks.UpHit = CheckDirectionForTerrain(NeighborDirection.Up, node, out isNeighbor);
+            neighboringHits += isNeighbor ? 1 : 0;
+
+            // Check Bottom for terrain.
+            TerrainChecks.DownHit = CheckDirectionForTerrain(NeighborDirection.Down, node, out isNeighbor);
+            neighboringHits += isNeighbor ? 1 : 0;
+
+            // Check Left for terrain.
+            TerrainChecks.LeftHit = CheckDirectionForTerrain(NeighborDirection.Left, node, out isNeighbor);
+            neighboringHits += isNeighbor ? 1 : 0;
+
+            // Check Right for terrain.
+            TerrainChecks.RightHit = CheckDirectionForTerrain(NeighborDirection.Right, node, out isNeighbor);
+            neighboringHits += isNeighbor ? 1 : 0;
+
+            // Check Front for terrain.
+            TerrainChecks.FrontHit = CheckDirectionForTerrain(NeighborDirection.Front, node, out isNeighbor);
+            neighboringHits += isNeighbor ? 1 : 0;
+
+            // Check Back for terrain.
+            TerrainChecks.BackHit = CheckDirectionForTerrain(NeighborDirection.Back, node, out isNeighbor);
+            neighboringHits += isNeighbor ? 1 : 0;
+
+            // To speed up the checks for the exits, we save the nodes that directly neighbor geometry on 2 sides.
+            if (neighboringHits == 2)
+            {
+                potentialExits.Add(node);
+            }
+
+            if (CheckGeometry(ref detectedGeometry, TerrainChecks))
+            {
+                detectedGeometry.Nodes.Add(node);
+                foreach (GeometryType GeoType in detectedGeometry.MarkedGeometry)
+                {
+                    node.MarkedAs.Add(GeoType);
+                }
+
+                List<NeighborInfo> neighbors = node.GetNeighbors();
+                foreach (NeighborInfo neighbor in neighbors)
+                {
+                    DetectTunnelOrHole(neighbor.Neighbor, ref detectedGeometry, potentialExits);
+                }
+            }
+        }
+
+        private bool CheckDirectionForTerrain(NeighborDirection direction, GeometryNode node, out bool foundOnFirstIteration)
         {
             List<NeighborInfo> neighbors = node.GetNeighbors(direction);
 
@@ -171,17 +191,11 @@ namespace GeometryDetection
                 // We only check if we are already marked as hole or tunnel AFTER we check our neighbor.
                 // This is needed to make sure this node is not a potential exit!!
                 if (neighbor.Neighbor.ContainsGeometry
-                    || node.MarkedAs.Contains(GeometryType.Hole)
-                    || node.MarkedAs.Contains(GeometryType.Tunnel)
-                    || neighbor.Neighbor.MarkedAs.Contains(GeometryType.Hole)
-                    || neighbor.Neighbor.MarkedAs.Contains(GeometryType.Tunnel)
-                    || CheckDirectionForTerrain(direction, neighbor.Neighbor, usedNodes, out foundOnFirstIteration))
+                    || CheckDirectionForTerrain(direction, neighbor.Neighbor, out foundOnFirstIteration))
                 {
                     // If the first iteration instantly finds geometry, it will return true.
                     // It doesn't matter if geometry is found in the recursion as it will always bubble back up to the first iteration.
                     foundOnFirstIteration = neighbor.Neighbor.ContainsGeometry;
-
-                    usedNodes.Add(node);
                     return true;
                 }
             }
@@ -190,28 +204,9 @@ namespace GeometryDetection
             return false;
         }
 
-        private bool CheckNeighborsForTunnelOrHole(NeighborDirection direction, GeometryNode node, List<NeighborInfo> neighborsToCheck)
+        private void DetectIfPartOfExit(GeometryNode node, bool failedBefore = false)
         {
-            List<NeighborInfo> neighbors = node.GetNeighbors(direction);
-
-            foreach (NeighborInfo neighbor in neighbors)
-            { 
-                // If we find Geometry or a Node with the Hole or Tunnel mark, we need to continue looking in this direction later on.
-                if (neighbor.Neighbor.ContainsGeometry
-                    || neighbor.Neighbor.MarkedAs.Contains(GeometryType.Hole)
-                    || neighbor.Neighbor.MarkedAs.Contains(GeometryType.Tunnel))
-                {
-                    neighborsToCheck.AddRange(neighbors);
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private void DetectIfPartOfExit(GeometryNode node)
-        {
-            if (node.ContainsGeometry
+            if ((!node.MarkedAs.Contains(GeometryType.Hole) && !node.MarkedAs.Contains(GeometryType.Tunnel))
                 || node.MarkedAs.Contains(GeometryType.Exit))
                 return;
 
@@ -226,45 +221,60 @@ namespace GeometryDetection
             exitChecks.BackHit = CheckNeighborsForTunnelOrHole(NeighborDirection.Back, node, neighborsToCheck);
 
             // When we find Geometry or a Node with the Tunnel or Hole mark in all but one direction, we have an exit.
-            if (exitChecks.SuccesfullChecks == 5)
+            if (exitChecks.SuccesfullChecks == 4
+                || exitChecks.SuccesfullChecks == 5)
             {
                 node.MarkedAs.Add(GeometryType.Exit);
-                node.NodeRenderer.sharedMaterial = ExitMaterial;
+
                 foreach (NeighborInfo neighbor in neighborsToCheck)
                 {
                     DetectIfPartOfExit(neighbor.Neighbor);
                 }
             }
+            else if (!failedBefore)
+            {
+                foreach (NeighborInfo neighbor in neighborsToCheck)
+                {
+                    DetectIfPartOfExit(neighbor.Neighbor, true);
+                }
+            }
+        }
+
+        private bool CheckNeighborsForTunnelOrHole(NeighborDirection direction, GeometryNode node, List<NeighborInfo> neighborsToCheck)
+        {
+            List<NeighborInfo> neighbors = node.GetNeighbors(direction);
+
+            foreach (NeighborInfo neighbor in neighbors)
+            {
+                // If we find Geometry or a Node with the Hole or Tunnel mark, we need to continue looking in this direction later on.
+                if (neighbor.Neighbor.ContainsGeometry
+                    || neighbor.Neighbor.MarkedAs.Contains(GeometryType.Hole)
+                    || neighbor.Neighbor.MarkedAs.Contains(GeometryType.Tunnel))
+                {
+                    neighborsToCheck.AddRange(neighbors);
+                    return true;
+                }
+            }
+
+            return false;
         }
         #endregion
         #region GeometryChecks
-        private bool CheckGeometry(DetectionInfo detectedTerrain, ref DetectedGeometry detectedGeometry)
+        private bool CheckGeometry(ref DetectedGeometry detectedGeometry, DetectionInfo detectedTerrain)
         {
             if (detectedTerrain.SuccesfullChecks < MinimumSuccesfullChecks)
                 return false;
 
             //DetectExits( ref detectedGeometry);
-            bool succesfull = HoleCheck(detectedTerrain, ref detectedGeometry) || TunnelCheck(detectedTerrain, ref detectedGeometry);
-
-            foreach (GeometryNode node in detectedGeometry.Nodes)
-            {
-                foreach(GeometryType GeoType in detectedGeometry.MarkedGeometry)
-                {
-                    node.MarkedAs.Add(GeoType);
-                }
-            }
+            bool succesfull = HoleCheck(ref detectedGeometry, detectedTerrain);
+            succesfull = TunnelCheck(ref detectedGeometry, detectedTerrain) || succesfull;
 
             return succesfull;
         }
 
-        private bool TunnelCheck(DetectionInfo detectedTerrain, ref DetectedGeometry detectedGeometry)
+        private bool TunnelCheck(ref DetectedGeometry detectedGeometry, DetectionInfo detectedTerrain)
         {
-            int succesfullHitCount = 0;
-            succesfullHitCount += (detectedTerrain.UpHit && detectedTerrain.DownHit) ? 1 : 0;
-            succesfullHitCount += (detectedTerrain.RightHit && detectedTerrain.LeftHit) ? 1 : 0;
-            succesfullHitCount += (detectedTerrain.FrontHit && detectedTerrain.BackHit) ? 1 : 0;
-
-            if (succesfullHitCount == 2)
+            if (detectedTerrain.SuccesfullChecks == 4)
             {
                 detectedGeometry.MarkedGeometry.Add(GeometryType.Tunnel);
                 return true;
@@ -274,7 +284,7 @@ namespace GeometryDetection
         }
 
 
-        private bool HoleCheck(DetectionInfo detectedTerrain, ref DetectedGeometry detectedGeometry)
+        private bool HoleCheck(ref DetectedGeometry detectedGeometry, DetectionInfo detectedTerrain)
         {
             if (detectedTerrain.SuccesfullChecks > 4)
             {
@@ -288,7 +298,33 @@ namespace GeometryDetection
         #region Visualization
         private void VisualizeData()
         {
+            HashSet<DetectedGeometry> allDetected = new HashSet<DetectedGeometry>();
+            foreach(DetectedGeometry tunnel in Tunnels)
+            {
+                allDetected.Add(tunnel);
+            }
 
+            foreach (DetectedGeometry hole in Holes)
+            {
+                allDetected.Add(hole);
+            }
+
+            foreach (DetectedGeometry geo in allDetected)
+            {
+                foreach (GeometryNode node in geo.Nodes)
+                {
+                    if (VisualizeExits
+                && node.MarkedAs.Contains(GeometryType.Exit))
+                    {
+                        node.NodeRenderer.sharedMaterial = ExitMaterial;
+                    }
+                    else if (VisualizeTunnels
+                        && (node.MarkedAs.Contains(GeometryType.Hole) || node.MarkedAs.Contains(GeometryType.Tunnel)))
+                    {
+                        node.NodeRenderer.sharedMaterial = TunnelMaterial;
+                    }
+                }
+            }
         }
         #endregion
     }

@@ -42,6 +42,7 @@ namespace GeometryDetection
 
     public enum GeometryType
     {
+        SpecialGeometry,
         Hole,
         Tunnel,
         Exit
