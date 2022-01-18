@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System.Linq;
 
 namespace GeometryDetection
 {
@@ -81,7 +82,7 @@ namespace GeometryDetection
         public void DetectHoles()
         {
             // Create new wrapper class that stores Nodes and extra information unique to the hole detector
-            List<GeometryNode> geometry = GeometryDetector.EmptyNodes;
+            List<GeometryNode> geometry = GeometryDetector.EmptyNodes.OrderBy(g => g.Depth).ToList();
             Debug.Log("Pulled in data.");
 
             // Start detecting the holes.
@@ -112,11 +113,7 @@ namespace GeometryDetection
                         }
                     }
                 }
-
-                
             }
-
-            
 
             VisualizeData();
             Debug.Log("Finished Tunnel Detection with " + Tunnels.Count + " tunnels and " + Holes.Count + " holes.");
@@ -137,27 +134,27 @@ namespace GeometryDetection
             DetectionInfo TerrainChecks = new DetectionInfo();
 
             // Check Top for terrain.
-            TerrainChecks.UpHit = CheckDirectionForTerrain(NeighborDirection.Up, node, out isNeighbor);
+            TerrainChecks.UpHit = CheckDirectionForTerrain(NeighborDirection.Up, node, node, out isNeighbor);
             neighboringHits += isNeighbor ? 1 : 0;
 
             // Check Bottom for terrain.
-            TerrainChecks.DownHit = CheckDirectionForTerrain(NeighborDirection.Down, node, out isNeighbor);
+            TerrainChecks.DownHit = CheckDirectionForTerrain(NeighborDirection.Down, node, node, out isNeighbor);
             neighboringHits += isNeighbor ? 1 : 0;
 
             // Check Left for terrain.
-            TerrainChecks.LeftHit = CheckDirectionForTerrain(NeighborDirection.Left, node, out isNeighbor);
+            TerrainChecks.LeftHit = CheckDirectionForTerrain(NeighborDirection.Left, node, node, out isNeighbor);
             neighboringHits += isNeighbor ? 1 : 0;
 
             // Check Right for terrain.
-            TerrainChecks.RightHit = CheckDirectionForTerrain(NeighborDirection.Right, node, out isNeighbor);
+            TerrainChecks.RightHit = CheckDirectionForTerrain(NeighborDirection.Right, node, node, out isNeighbor);
             neighboringHits += isNeighbor ? 1 : 0;
 
             // Check Front for terrain.
-            TerrainChecks.FrontHit = CheckDirectionForTerrain(NeighborDirection.Front, node, out isNeighbor);
+            TerrainChecks.FrontHit = CheckDirectionForTerrain(NeighborDirection.Front, node, node, out isNeighbor);
             neighboringHits += isNeighbor ? 1 : 0;
 
             // Check Back for terrain.
-            TerrainChecks.BackHit = CheckDirectionForTerrain(NeighborDirection.Back, node, out isNeighbor);
+            TerrainChecks.BackHit = CheckDirectionForTerrain(NeighborDirection.Back, node, node, out isNeighbor);
             neighboringHits += isNeighbor ? 1 : 0;
 
             // To speed up the checks for the exits, we save the nodes that directly neighbor geometry on 2 sides.
@@ -181,17 +178,46 @@ namespace GeometryDetection
                 }
             }
         }
-
-        private bool CheckDirectionForTerrain(NeighborDirection direction, GeometryNode node, out bool foundOnFirstIteration)
+        
+        private bool CheckDirectionForTerrain(NeighborDirection direction, GeometryNode startNode, GeometryNode currentNode, out bool foundOnFirstIteration)
         {
-            List<NeighborInfo> neighbors = node.GetNeighbors(direction);
+            if (direction == NeighborDirection.Right
+                && startNode.NodeID == 494
+                && currentNode.NodeID == 2825)
+            {
+                Debug.Log("HITIT");
+            }
 
+            if (startNode != currentNode
+                && startNode.Depth <= currentNode.Depth)
+            {
+                GeometryNode nodeToCheck = currentNode;
+                while(nodeToCheck.Depth != startNode.Depth)
+                {
+                    nodeToCheck = nodeToCheck.ParentNode;
+                }
+
+                Vector3 dirAsVec = DirectionToVector(direction);
+                if ((nodeToCheck.transform.position - startNode.transform.position).normalized != dirAsVec)
+                {
+                    return foundOnFirstIteration = false;
+                }
+            }
+
+            List<NeighborInfo> neighbors = currentNode.GetNeighbors(direction);
             foreach (NeighborInfo neighbor in neighbors)
             {
-                // We only check if we are already marked as hole or tunnel AFTER we check our neighbor.
-                // This is needed to make sure this node is not a potential exit!!
+                if (currentNode.Depth > neighbor.Neighbor.Depth
+                    && !neighbor.Neighbor.MarkedAs.Contains(GeometryType.Hole)
+                    && !neighbor.Neighbor.MarkedAs.Contains(GeometryType.Tunnel))
+                {
+                    continue;
+                }
+
+                // Only after we checked the depth of our neighbor, we check the other requirements.
+                // This is due to one of these conditions triggering recursion!
                 if (neighbor.Neighbor.ContainsGeometry
-                    || CheckDirectionForTerrain(direction, neighbor.Neighbor, out foundOnFirstIteration))
+                    || CheckDirectionForTerrain(direction, startNode, neighbor.Neighbor, out foundOnFirstIteration))
                 {
                     // If the first iteration instantly finds geometry, it will return true.
                     // It doesn't matter if geometry is found in the recursion as it will always bubble back up to the first iteration.
@@ -200,8 +226,7 @@ namespace GeometryDetection
                 }
             }
 
-            foundOnFirstIteration = false;
-            return false;
+            return foundOnFirstIteration = false;
         }
 
         private void DetectIfPartOfExit(GeometryNode node, bool failedBefore = false)
@@ -295,7 +320,7 @@ namespace GeometryDetection
             return false;
         }
         #endregion
-        #region Visualization
+        #region Other
         private void VisualizeData()
         {
             HashSet<DetectedGeometry> allDetected = new HashSet<DetectedGeometry>();
@@ -325,6 +350,21 @@ namespace GeometryDetection
                     }
                 }
             }
+        }
+
+        private Vector3 DirectionToVector(NeighborDirection direction)
+        {
+            switch (direction)
+            {
+                case NeighborDirection.Up: return new Vector3(0, 1, 0);
+                case NeighborDirection.Down: return new Vector3(0, -1, 0);
+                case NeighborDirection.Left: return new Vector3(-1, 0, 0);
+                case NeighborDirection.Right: return new Vector3(1, 0, 0);
+                case NeighborDirection.Front: return new Vector3(0, 0, 1);
+                case NeighborDirection.Back: return new Vector3(0, 0, -1);
+            }
+
+            return new Vector3();
         }
         #endregion
     }

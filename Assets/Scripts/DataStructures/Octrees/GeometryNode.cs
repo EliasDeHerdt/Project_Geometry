@@ -259,7 +259,7 @@ namespace GeometryDetection
 
             // Check where the neigbor is located compared to this node
             NeighborDirection direction = GetDirectionToNode(foundNeighbor);
-            if (direction == NeighborDirection.Invalid)
+            if (direction == NeighborDirection.None)
                 return;
 
             // Set up the Neighbor Info
@@ -359,7 +359,7 @@ namespace GeometryDetection
             //}
             #endregion
 
-            return NeighborDirection.Invalid;
+            return NeighborDirection.None;
         }
 
         public List<NeighborInfo> GetNeighbors(NeighborDirection direction = NeighborDirection.None)

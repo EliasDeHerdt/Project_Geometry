@@ -12,32 +12,11 @@ namespace GeometryDetection
     {
         None,
         Up,
-        UpLeft,
-        Left,
-        DownLeft,
         Down,
-        DownRight,
+        Left,
         Right,
-        UpRight,
         Front,
-        FrontUp,
-        FrontUpLeft,
-        FrontLeft,
-        FrontDownLeft,
-        FrontDown,
-        FrontDownRight,
-        FrontRight,
-        FrontUpRight,
-        Back,
-        BackUp,
-        BackUpLeft,
-        BackLeft,
-        BackDownLeft,
-        BackDown,
-        BackDownRight,
-        BackRight,
-        BackUpRight,
-        Invalid
+        Back
     }
 
     public enum GeometryType
