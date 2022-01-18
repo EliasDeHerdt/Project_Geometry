@@ -86,11 +86,19 @@ namespace GeometryDetection
             Debug.Log("Pulled in data.");
 
             // Start detecting the holes.
-            foreach (GeometryNode node in geometry)
+            foreach (GeometryNode foundNode in geometry)
             {
-                List<GeometryNode> potentialExits = new List<GeometryNode>();
                 DetectedGeometry detectedGeometry = new DetectedGeometry(new List<GeometryNode>());
-                DetectTunnelOrHole(node, ref detectedGeometry, potentialExits);
+                List<GeometryNode> potentialExits = new List<GeometryNode>();
+
+                List<GeometryNode> priorityQueue = new List<GeometryNode>();
+                priorityQueue.Add(foundNode);
+                while(priorityQueue.Count != 0)
+                {
+                    GeometryNode node = priorityQueue[0];
+                    priorityQueue.AddRange(DetectTunnelOrHole(node, ref detectedGeometry, potentialExits));
+                    priorityQueue.RemoveAt(0);
+                }
 
                 if (detectedGeometry.Nodes.Count > 0)
                 {
@@ -120,13 +128,14 @@ namespace GeometryDetection
         }
 
         #region DirectionalChecks
-        private void DetectTunnelOrHole(GeometryNode node, ref DetectedGeometry detectedGeometry, List<GeometryNode> potentialExits)
+        private List<GeometryNode> DetectTunnelOrHole(GeometryNode node, ref DetectedGeometry detectedGeometry, List<GeometryNode> potentialExits)
         {
+            List<GeometryNode> output = new List<GeometryNode>();
             if (node.ContainsGeometry
                 || node.MarkedAs.Contains(GeometryType.Hole)
                 || node.MarkedAs.Contains(GeometryType.Tunnel))
             {
-                return;
+                return output;
             }
 
             bool isNeighbor = false;
@@ -174,9 +183,11 @@ namespace GeometryDetection
                 List<NeighborInfo> neighbors = node.GetNeighbors();
                 foreach (NeighborInfo neighbor in neighbors)
                 {
-                    DetectTunnelOrHole(neighbor.Neighbor, ref detectedGeometry, potentialExits);
+                    output.Add(neighbor.Neighbor);
                 }
             }
+
+            return output;
         }
         
         private bool CheckDirectionForTerrain(NeighborDirection direction, GeometryNode startNode, GeometryNode currentNode, out bool foundOnFirstIteration)
