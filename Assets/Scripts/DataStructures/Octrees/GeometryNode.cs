@@ -274,27 +274,29 @@ namespace GeometryDetection
 
         private NeighborDirection GetDirectionToNode(GeometryNode node)
         {
-            GeometryNode thisCorrectParent = this;
-            GeometryNode otherCorrectParent = node;
+            GeometryNode thisCorrectNode = this;
+            GeometryNode otherCorrectNode = node;
 
-            // If the other node is smaller, go up until their parent is the same size.
-            while (otherCorrectParent != null
-                && thisCorrectParent.Depth < otherCorrectParent.Depth)
+            // If the other node is smaller, go up until they are the same size.
+            while (otherCorrectNode != null
+                && thisCorrectNode.Depth < otherCorrectNode.Depth)
             {
-                otherCorrectParent = otherCorrectParent.ParentNode;
+                otherCorrectNode = otherCorrectNode.ParentNode;
             }
 
-            // If we are smaller, go up so our parent is the same size.
-            while (thisCorrectParent != null
-                && otherCorrectParent.Depth < thisCorrectParent.Depth)
+            // If we are smaller, go up so we are the same size.
+            while (thisCorrectNode != null
+                && otherCorrectNode.Depth < thisCorrectNode.Depth)
             {
-                thisCorrectParent = thisCorrectParent.ParentNode;
+                thisCorrectNode = thisCorrectNode.ParentNode;
             }
 
-            Vector3 ourPosition = thisCorrectParent.transform.position;
-            Vector3 otherPosition = otherCorrectParent.gameObject.transform.position;
+            Vector3 ourPosition = thisCorrectNode.transform.position;
+            Vector3 otherPosition = otherCorrectNode.gameObject.transform.position;
 
-            #region Default Checks
+            // Hardcoded directional checks
+            // Returns the direction if the checks succeeds
+            #region Directional Checks
             if (otherPosition.x == ourPosition.x
                 && otherPosition.y > ourPosition.y
                 && otherPosition.z == ourPosition.z)
@@ -331,32 +333,6 @@ namespace GeometryDetection
             {
                 return NeighborDirection.Front;
             }
-            #endregion
-            #region Extra Checks
-            //else if(otherPosition.x < ourPosition.x
-            //    && otherPosition.y > ourPosition.y
-            //    && otherPosition.z == ourPosition.z)
-            //{
-            //    return NeighborDirection.UpLeft;
-            //}
-            //else if (otherPosition.x < ourPosition.x
-            //    && otherPosition.y < ourPosition.y
-            //    && otherPosition.z == ourPosition.z)
-            //{
-            //    return NeighborDirection.DownLeft;
-            //}
-            //else if (otherPosition.x > ourPosition.x
-            //    && otherPosition.y < ourPosition.y
-            //    && otherPosition.z == ourPosition.z)
-            //{
-            //    return NeighborDirection.DownRight;
-            //}
-            //else if (otherPosition.x > ourPosition.x
-            //    && otherPosition.y > ourPosition.y
-            //    && otherPosition.z == ourPosition.z)
-            //{
-            //    return NeighborDirection.UpRight;
-            //}
             #endregion
 
             return NeighborDirection.None;
