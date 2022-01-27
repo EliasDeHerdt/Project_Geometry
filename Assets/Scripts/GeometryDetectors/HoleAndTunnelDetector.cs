@@ -18,13 +18,6 @@ namespace GeometryDetection
             set { _maxDiameter = value; }
         }
 
-        [SerializeField] private int _minimumSuccesfullChecks = 4;
-        public int MinimumSuccesfullChecks
-        {
-            get { return _minimumSuccesfullChecks; }
-            set { _minimumSuccesfullChecks = value; }
-        }
-
         [Header("Visualization Parameters")]
         [SerializeField] private bool _visualizeTunnels = true;
         public bool VisualizeTunnels
@@ -94,12 +87,13 @@ namespace GeometryDetection
                 List<GeometryNode> potentialExits = new List<GeometryNode>();
 
                 List<GeometryNode> priorityQueue = new List<GeometryNode>();
-                priorityQueue.Add(foundNode);
+                priorityQueue.AddRange(DetectTunnelOrHole(foundNode, ref detectedGeometry, potentialExits, false));
+
                 while(priorityQueue.Count != 0)
                 {
                     GeometryNode node = priorityQueue[0];
 
-                    priorityQueue.AddRange(DetectTunnelOrHole(node, ref detectedGeometry, potentialExits));
+                    priorityQueue.AddRange(DetectTunnelOrHole(node, ref detectedGeometry, potentialExits, true));
                     priorityQueue.RemoveAt(0);
                 }
 
@@ -136,7 +130,7 @@ namespace GeometryDetection
         }
 
         #region DirectionalChecks
-        private List<GeometryNode> DetectTunnelOrHole(GeometryNode node, ref DetectedGeometry detectedGeometry, List<GeometryNode> potentialExits)
+        private List<GeometryNode> DetectTunnelOrHole(GeometryNode node, ref DetectedGeometry detectedGeometry, List<GeometryNode> potentialExits, bool holeDetectedBefore)
         {
             List<GeometryNode> output = new List<GeometryNode>();
             if (node.ContainsGeometry
@@ -146,9 +140,14 @@ namespace GeometryDetection
                 return output;
             }
 
+            if (node.NodeID == 6123/*1240*/)
+                Debug.Log("");
+
             bool isNeighbor = false;
             int neighboringHits = 0;
             DetectionInfo TerrainChecks = new DetectionInfo();
+
+            int failedDistanceChecks = 0;
             float distance = GetSizeInDirection(node, NeighborDirection.Up);
 
             // Check Top for terrain.
@@ -159,10 +158,7 @@ namespace GeometryDetection
             TerrainChecks.DownHit = CheckDirectionForTerrain(NeighborDirection.Down, node, node, ref distance, out isNeighbor);
             neighboringHits += isNeighbor ? 1 : 0;
 
-            if (distance > MaxDiameter)
-            {
-                return output;
-            }
+            failedDistanceChecks += (distance > MaxDiameter) ? 1 : 0;
             distance = GetSizeInDirection(node, NeighborDirection.Left);
 
             // Check Left for terrain.
@@ -173,10 +169,7 @@ namespace GeometryDetection
             TerrainChecks.RightHit = CheckDirectionForTerrain(NeighborDirection.Right, node, node, ref distance, out isNeighbor);
             neighboringHits += isNeighbor ? 1 : 0;
 
-            if (distance > MaxDiameter)
-            {
-                return output;
-            }
+            failedDistanceChecks += (distance > MaxDiameter) ? 1 : 0;
             distance = GetSizeInDirection(node, NeighborDirection.Front);
 
             // Check Front for terrain.
@@ -187,7 +180,8 @@ namespace GeometryDetection
             TerrainChecks.BackHit = CheckDirectionForTerrain(NeighborDirection.Back, node, node, ref distance, out isNeighbor);
             neighboringHits += isNeighbor ? 1 : 0;
 
-            if (distance > MaxDiameter)
+            failedDistanceChecks += (distance > MaxDiameter) ? 1 : 0;
+            if (failedDistanceChecks != 0)
             {
                 return output;
             }
@@ -198,7 +192,7 @@ namespace GeometryDetection
                 potentialExits.Add(node);
             }
 
-            if (CheckGeometry(ref detectedGeometry, TerrainChecks))
+            if (HoleCheck(ref detectedGeometry, TerrainChecks, holeDetectedBefore))
             {
                 detectedGeometry.Nodes.Add(node);
                 foreach (GeometryType GeoType in detectedGeometry.MarkedGeometry)
@@ -215,9 +209,11 @@ namespace GeometryDetection
 
             return output;
         }
-        
+
         private bool CheckDirectionForTerrain(NeighborDirection direction, GeometryNode startNode, GeometryNode currentNode, ref float distanceChecked, out bool foundOnFirstIteration)
         {
+            // Check if the node that is currently being checked is on the same axis as the start node
+            // Only do this if the node being checking is smaller or the same size as the start node
             if (startNode != currentNode
                 && startNode.Depth <= currentNode.Depth)
             {
@@ -234,19 +230,20 @@ namespace GeometryDetection
                 }
             }
 
+            // Start checking the neighbors
             List<NeighborInfo> neighbors = currentNode.GetNeighbors(direction);
             foreach (NeighborInfo neighbor in neighbors)
             {
-                if (currentNode.Depth > neighbor.Neighbor.Depth
-                    && !neighbor.Neighbor.MarkedAs.Contains(GeometryType.Hole)
-                    && !neighbor.Neighbor.MarkedAs.Contains(GeometryType.Tunnel))
-                {
-                    continue;
-                }
+                //if (currentNode.Depth > neighbor.Neighbor.Depth
+                //    && !neighbor.Neighbor.MarkedAs.Contains(GeometryType.Hole)
+                //    && !neighbor.Neighbor.MarkedAs.Contains(GeometryType.Tunnel))
+                //{
+                //    continue;
+                //}
 
                 // Only after we checked the depth of our neighbor, we check the other requirements.
                 // This is due to one of these conditions triggering recursion!
-                if (neighbor.Neighbor.ContainsGeometry
+                if (currentNode.ContainsGeometry
                     || CheckDirectionForTerrain(direction, startNode, neighbor.Neighbor, ref distanceChecked, out foundOnFirstIteration))
                 {
                     // If the first iteration instantly finds geometry, it will return true.
@@ -282,8 +279,7 @@ namespace GeometryDetection
             exitChecks.BackHit = CheckNeighborsForTunnelOrHole(NeighborDirection.Back, node, neighborsToCheck);
 
             // When we find Geometry or a Node with the Tunnel or Hole mark in all but one direction, we have an exit.
-            if (exitChecks.SuccesfullChecks == 4
-                || exitChecks.SuccesfullChecks == 5)
+            if (exitChecks.SuccesfullChecks != 6)
             {
                 node.MarkedAs.Add(GeometryType.Exit);
                 exits.Add(node);
@@ -322,15 +318,7 @@ namespace GeometryDetection
         }
         #endregion
         #region GeometryChecks
-        private bool CheckGeometry(ref DetectedGeometry detectedGeometry, DetectionInfo detectedTerrain)
-        {
-            if (detectedTerrain.SuccesfullChecks < MinimumSuccesfullChecks)
-                return false;
-
-            return HoleCheck(ref detectedGeometry, detectedTerrain);
-        }
-
-        private bool HoleCheck(ref DetectedGeometry detectedGeometry, DetectionInfo detectedTerrain)
+        private bool HoleCheck(ref DetectedGeometry detectedGeometry, DetectionInfo detectedTerrain, bool holeDetectedBefore)
         {
             int doubleHitCounter = 0;
             doubleHitCounter += (detectedTerrain.UpHit && detectedTerrain.DownHit) ? 1 : 0;
@@ -338,7 +326,7 @@ namespace GeometryDetection
             doubleHitCounter += (detectedTerrain.FrontHit && detectedTerrain.BackHit) ? 1 : 0;
 
             if (detectedTerrain.SuccesfullChecks >= 4
-                && doubleHitCounter >= 2)
+                && (holeDetectedBefore || doubleHitCounter >= 2))
             {
                 detectedGeometry.MarkedGeometry.Add(GeometryType.Hole);
                 return true;
