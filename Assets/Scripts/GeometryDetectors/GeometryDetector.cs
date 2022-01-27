@@ -9,7 +9,6 @@ namespace GeometryDetection
     {
         #region Variables
         [Header("Data to spawn when no collider is given.")]
-        [Header("There should only be 1 instance of this component!")]
         [SerializeField] private Vector3 _startPos = new Vector3(0f, 0f ,0f);
         [SerializeField] private Vector3 _startScale = new Vector3(1f, 1f ,1f);
 
